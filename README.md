@@ -44,7 +44,7 @@ To add a client: drop a one-colour transparent PNG in `img/clients/` and add a l
 - [ ] Case studies for PR, Digital, Websites and Events (those filters currently show a "request the deck" message)
 - [x] Client logo strip: 23 client logos in `img/clients/` (one ink colour, made from the brand files)
 - [ ] Sharper files for the 6 logos taken from Instagram (Beirut Beer, BYD, Île, Karen Wazen, Pilatté, us Coffee — currently 150px)
-- [ ] Confirm Table du Chef Jean, Grandpas and Rucker Park can be named in the work grid
+- [x] Work grid client names confirmed (Table du Chef Jean, Grandpas, Rucker Park, MONS, ILE)
 - [x] Stats confirmed: 10+ years, 500+ projects, 80+ brands
 - [ ] Real articles (current titles are samples)
 - [ ] Native Arabic copywriter review

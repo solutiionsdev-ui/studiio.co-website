@@ -249,14 +249,16 @@ html[lang="ar"] .hero-lede { line-height: 1.5; letter-spacing: 0; font-weight: 5
   position: relative;
   margin: clamp(32px, 4vw, 56px) calc(var(--gutter) * -1) 0;
   overflow: hidden;
+  touch-action: pan-y;            /* sideways swipes move the strip, vertical swipes still scroll the page */
+  -webkit-user-select: none; user-select: none;
 }
 .strip-track {
   display: flex; gap: 10px; width: max-content;
   padding-inline: 5px;
-  animation: marquee 80s linear infinite;
+  will-change: transform;         /* moved by main.js: auto drift + drag/swipe */
 }
-html[dir="rtl"] .strip-track { animation-name: marquee-rtl; }
-.strip:hover .strip-track { animation-play-state: paused; }
+.strip-item img { -webkit-user-drag: none; }
+.strip.is-dragging .strip-item { cursor: grabbing; }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes marquee-rtl { to { transform: translateX(50%); } }
 
@@ -294,6 +296,7 @@ html[dir="rtl"] .strip-track { animation-name: marquee-rtl; }
 }
 html[lang="ar"] .cursor { font-family: var(--f-body); font-size: 14px; letter-spacing: 0; text-transform: none; }
 .cursor.on { --s: 1; }
+.cursor.on.pressed { --s: .8; }
 
 /* ==========================================================================
    Statement
@@ -633,7 +636,8 @@ html[dir="rtl"] .field select { background-position: 6px 55%, 12px 55%; }
 .form-note.error { color: #FF8A6B; }
 .contact-form button[disabled] { opacity: .6; cursor: progress; }
 .field [aria-invalid="true"] { border-color: #FF8A6B; }
-.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+/* Honeypot: invisible without off-screen offsets (a big left offset creates sideways scrolling in Arabic/RTL) */
+.hp { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 .site-footer { background: var(--ink); color: var(--paper); padding: 0 var(--gutter) 24px; overflow: hidden; }
 .wordmark--footer { color: var(--paper); padding-top: clamp(28px, 4vw, 64px); border-top: 1px solid var(--line-dark); }
@@ -734,8 +738,6 @@ html.js .reveal.in { opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   html.js .hero .wordmark .g { transform: none; }
-  .strip { overflow-x: auto; }
-  .strip-track { animation: none !important; }
   .logo-marquee { -webkit-mask-image: none; mask-image: none; }
   .logo-track { animation: none !important; width: auto; flex-wrap: wrap; justify-content: center; }
   .client-logo.dup { display: none; }

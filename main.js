@@ -20,6 +20,7 @@
       'hero.lede': 'We build brands people talk about, and the systems that keep them growing.',
       'hero.location': 'Beirut · Dubai · California',
       'hero.reel': 'Play reel',
+      'hero.drag': 'Drag',
       'about.label': '(00) Who we are',
       'about.title': 'Two <em>i’s</em>.<br>One vision.',
       'about.intro': 'STUDIIO is an integrated creative and communications agency connecting the Middle East and the US, with studios in Beirut, Dubai and California. The two i’s in our name stand for what we deliver on every brief: Ideas and Impact.',
@@ -80,6 +81,7 @@
       'hero.lede': 'نبني علامات تجارية يتحدث عنها الناس، والأنظمة التي تُبقيها في نموّ مستمر.',
       'hero.location': 'بيروت · دبي · كاليفورنيا',
       'hero.reel': 'شاهد أعمالنا',
+      'hero.drag': 'اسحب',
       'about.label': '(00) من نحن',
       'about.title': 'الفكرة <em>والأثر</em>.<br>رؤية واحدة.',
       'about.intro': 'STUDIIO وكالة متكاملة للإبداع والاتصال تربط الشرق الأوسط بالولايات المتحدة، ولدينا استوديوهات في بيروت ودبي وكاليفورنيا. حرفا الـ i في اسمنا يرمزان إلى ما نقدّمه في كل مشروع: الأفكار (Ideas) والأثر (Impact).',
@@ -418,6 +420,7 @@
     renderArticles();
     renderServiceSelect();
     observeReveals();
+    stripMotion.refresh();
   }
 
   /* ------------------------------------------------------------------
@@ -524,6 +527,89 @@
     if (!raf) raf = requestAnimationFrame(loop);
   });
   strip.addEventListener('pointerleave', () => cursor.classList.remove('on'));
+
+  // Film strip motion: drifts on its own, and can be dragged (mouse), swiped (touch)
+  // or scrolled sideways (trackpad). After a fling it glides, then eases back to drifting.
+  const stripMotion = (() => {
+    const track = $('#strip-track');
+    let x = 0, vel = 0, setW = 0, last = 0, frameId = null, visible = true;
+    let hovering = false, down = false, dragging = false, moved = false, pid = null;
+    let startX = 0, startOffset = 0, lastX = 0, lastT = 0, flingVel = 0;
+    const dir = () => (document.documentElement.dir === 'rtl' ? 1 : -1);
+    const autoSpeed = () => (reducedMotion.matches ? 0 : window.innerWidth < 640 ? 38 : 60); // px per second
+    const wrap = () => {
+      if (!setW) return;
+      x = dir() < 0 ? ((x % setW) - setW) % setW : ((x % setW) + setW) % setW;
+    };
+    const apply = () => { track.style.transform = `translate3d(${x}px,0,0)`; };
+    const measure = () => { setW = track.scrollWidth / 2; wrap(); apply(); };
+    const frame = (time) => {
+      const dt = Math.min(0.05, (time - (last || time)) / 1000);
+      last = time;
+      if (!dragging) {
+        const target = hovering ? 0 : autoSpeed() * dir();
+        vel += (target - vel) * (1 - Math.exp(-dt / 0.5));
+        x += vel * dt;
+        wrap(); apply();
+      }
+      frameId = visible && !document.hidden ? requestAnimationFrame(frame) : null;
+    };
+    const start = () => { if (!frameId && visible && !document.hidden) { last = 0; frameId = requestAnimationFrame(frame); } };
+
+    strip.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      down = true; dragging = false; moved = false; pid = e.pointerId;
+      startX = lastX = e.clientX; startOffset = x; lastT = e.timeStamp; flingVel = 0;
+    });
+    strip.addEventListener('pointermove', (e) => {
+      if (!down || e.pointerId !== pid) return;
+      const dx = e.clientX - startX;
+      if (!dragging && Math.abs(dx) > 6) {
+        dragging = moved = true;
+        strip.setPointerCapture(pid);
+        strip.classList.add('is-dragging');
+        cursor.classList.add('pressed');
+      }
+      if (!dragging) return;
+      x = startOffset + dx; wrap(); apply();
+      const dt = e.timeStamp - lastT;
+      if (dt > 0) flingVel = 0.75 * flingVel + 0.25 * ((e.clientX - lastX) / dt) * 1000;
+      lastX = e.clientX; lastT = e.timeStamp;
+    });
+    const end = (e) => {
+      if (!down || e.pointerId !== pid) return;
+      down = false;
+      if (!dragging) return;
+      dragging = false;
+      const stillFor = e.timeStamp - lastT;
+      vel = stillFor > 90 ? 0 : Math.max(-2600, Math.min(2600, flingVel));
+      strip.classList.remove('is-dragging');
+      cursor.classList.remove('pressed');
+    };
+    strip.addEventListener('pointerup', end);
+    strip.addEventListener('pointercancel', end);
+    // A drag shouldn't also count as a click that opens the reel
+    strip.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+    strip.addEventListener('dragstart', (e) => e.preventDefault());
+    strip.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hovering = true; });
+    strip.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hovering = false; });
+    // Trackpad / sideways wheel; vertical scrolling still scrolls the page
+    strip.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      x -= e.deltaX; wrap(); apply();
+    }, { passive: false });
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; if (visible) start(); }).observe(strip);
+    }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) start(); });
+    window.addEventListener('resize', measure);
+    return {
+      refresh() { measure(); vel = autoSpeed() * dir(); start(); },
+      get state() { return { x, vel, setW, dragging, hovering }; }
+    };
+  })();
 
   // Service hover preview
   const preview = $('#svc-preview');

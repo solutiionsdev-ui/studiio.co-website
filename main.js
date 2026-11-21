@@ -232,6 +232,8 @@
     { img: 'reflekt.jpg', cap: { en: 'Reflekt', ar: 'Reflekt' } }
   ];
 
+  // Bump when logo files change so browsers fetch the new ones.
+  const LOGO_VERSION = 2;
   // Client logos (img/clients/) in their brand colours. Split into two sliding rows in this order.
   const CLIENT_LOGOS = [
     { name: 'Capelli Sport', file: 'capelli.png', w: 480, h: 174 },
@@ -375,7 +377,7 @@
     // Equalise visual weight: wide wordmarks get shorter, compact marks taller.
     const logo = (c, dup) => {
       const h = Math.round(Math.max(26, Math.min(60, Math.sqrt(5200 / (c.w / c.h)))) * (c.s || 1));
-      return `<span class="client-logo${dup ? ' dup' : ''}"><img src="${IMG}clients/${c.file}" alt="" width="${c.w}" height="${c.h}" style="--h:${h}" loading="lazy" decoding="async"></span>`;
+      return `<span class="client-logo${dup ? ' dup' : ''}"><img src="${IMG}clients/${c.file}?v=${LOGO_VERSION}" alt="" width="${c.w}" height="${c.h}" style="--h:${h}" loading="lazy" decoding="async"></span>`;
     };
     const half = Math.ceil(CLIENT_LOGOS.length / 2);
     [CLIENT_LOGOS.slice(0, half), CLIENT_LOGOS.slice(half)].forEach((row, i) => {

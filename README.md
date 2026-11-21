@@ -42,7 +42,7 @@ Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work t
 - [ ] Replace the rebuilt logo SVG with the official vector file
 - [ ] Case studies for PR, Digital, Websites and Events (those filters currently show a "request the deck" message)
 - [ ] Confirm the client names shown (Table du Chef Jean, MONS, ILE, Grandpas, Reflekt, Rucker Park)
-- [ ] Confirm the stats (10+ years, 80+ brands — 500+ projects confirmed)
+- [x] Stats confirmed: 10+ years, 500+ projects, 80+ brands
 - [ ] Real articles (current titles are samples)
 - [ ] Native Arabic copywriter review
 - [ ] Connect the contact form (currently prototype-only)

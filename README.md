@@ -24,7 +24,8 @@ Then open http://localhost:4321 (or http://localhost:4321/?lang=ar for Arabic).
 | `favicon.svg` | Browser tab icon |
 | `vercel.json` | Caching headers for Vercel |
 
-Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work tiles, articles and client names are the `SERVICES`, `WORK`, `ARTICLES` and `CLIENTS` arrays.
+Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work tiles, articles and client logos are the `SERVICES`, `WORK`, `ARTICLES` and `CLIENT_LOGOS` arrays.
+To add a client: drop a one-colour transparent PNG in `img/clients/` and add a line to `CLIENT_LOGOS` (`s` optionally scales a logo up or down).
 
 ## Sections
 
@@ -41,7 +42,9 @@ Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work t
 
 - [ ] Replace the rebuilt logo SVG with the official vector file
 - [ ] Case studies for PR, Digital, Websites and Events (those filters currently show a "request the deck" message)
-- [ ] Confirm the client names shown (Table du Chef Jean, MONS, ILE, Grandpas, Reflekt, Rucker Park)
+- [x] Client logo strip: 23 client logos in `img/clients/` (one ink colour, made from the brand files)
+- [ ] Sharper files for the 6 logos taken from Instagram (Beirut Beer, BYD, Île, Karen Wazen, Pilatté, us Coffee — currently 150px)
+- [ ] Confirm Table du Chef Jean, Grandpas and Rucker Park can be named in the work grid
 - [x] Stats confirmed: 10+ years, 500+ projects, 80+ brands
 - [ ] Real articles (current titles are samples)
 - [ ] Native Arabic copywriter review

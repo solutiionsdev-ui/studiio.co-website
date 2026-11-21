@@ -216,7 +216,32 @@
     { img: 'reflekt.jpg', cap: { en: 'Reflekt', ar: 'Reflekt' } }
   ];
 
-  const CLIENTS = ['Table du Chef Jean', 'MONS', 'ILE', 'Grandpas', 'Reflekt', 'Rucker Park'];
+  // Client logos (img/clients/), converted to one ink colour. Split into two sliding rows in this order.
+  const CLIENT_LOGOS = [
+    { name: 'Capelli Sport', file: 'capelli.png', w: 480, h: 174 },
+    { name: 'Birdy Fam', file: 'birdy-fam.png', w: 385, h: 480, s: 1.15 },
+    { name: 'Qube', file: 'qube.png', w: 480, h: 180 },
+    { name: 'Karen Wazen Beach Club', file: 'karen-wazen.png', w: 220, h: 192, s: 1.25 },
+    { name: 'BYD', file: 'byd.png', w: 248, h: 58 },
+    { name: 'The Protein Bar', file: 'protein-bar.png', w: 480, h: 306 },
+    { name: 'Reflekt', file: 'reflekt.png', w: 480, h: 245 },
+    { name: 'Mōns', file: 'mons.png', w: 480, h: 132 },
+    { name: 'Beirut Beer', file: 'beirut-beer.png', w: 246, h: 102 },
+    { name: 'Luma', file: 'luma.png', w: 480, h: 140 },
+    { name: 'The Lab', file: 'the-lab.png', w: 480, h: 330 },
+    { name: 'Josée Efrem', file: 'josee-efrem.png', w: 480, h: 88 },
+    { name: 'Caliber', file: 'caliber.png', w: 480, h: 95 },
+    { name: 'Île Beach Bar', file: 'ile.png', w: 138, h: 108 },
+    { name: 'Mikkai', file: 'mikkai.png', w: 480, h: 200 },
+    { name: 'Step Ahead', file: 'step-ahead.png', w: 480, h: 107 },
+    { name: 'Wimsi', file: 'wimsi.png', w: 480, h: 167 },
+    { name: 'Pilatté Wellness', file: 'pilatte.png', w: 184, h: 84 },
+    { name: 'Fine B', file: 'fine-b.png', w: 480, h: 302 },
+    { name: 'Quwati', file: 'quwati.png', w: 480, h: 136 },
+    { name: 'us Coffee', file: 'us-coffee.png', w: 210, h: 108 },
+    { name: 'Stepahead Sports School', file: 'sss.png', w: 480, h: 438 },
+    { name: 'UNCVRD', file: 'uncvrd.png', w: 480, h: 84 }
+  ];
 
   const ARTICLES = [
     { img: 'portrait.jpg', cat: 'pr', mins: 5, title: { en: 'Why your launch needs a press strategy before a media budget', ar: 'لماذا يحتاج إطلاقك إلى استراتيجية إعلامية قبل ميزانية الإعلانات' } },
@@ -331,9 +356,17 @@
   }
 
   function renderClients() {
-    const row = CLIENTS.map((c) => `<span>${esc(c)}</span>`).join('');
-    $('#clients-track').innerHTML = row + row;
-    $('#clients-list').innerHTML = CLIENTS.map((c) => `<li>${esc(c)}</li>`).join('');
+    // Equalise visual weight: wide wordmarks get shorter, compact marks taller.
+    const logo = (c, dup) => {
+      const h = Math.round(Math.max(26, Math.min(60, Math.sqrt(5200 / (c.w / c.h)))) * (c.s || 1));
+      return `<span class="client-logo${dup ? ' dup' : ''}"><img src="${IMG}clients/${c.file}" alt="" width="${c.w}" height="${c.h}" style="--h:${h}" loading="lazy" decoding="async"></span>`;
+    };
+    const half = Math.ceil(CLIENT_LOGOS.length / 2);
+    [CLIENT_LOGOS.slice(0, half), CLIENT_LOGOS.slice(half)].forEach((row, i) => {
+      $(i ? '#logos-b' : '#logos-a').innerHTML =
+        row.map((c) => logo(c, false)).join('') + row.map((c) => logo(c, true)).join('');
+    });
+    $('#clients-list').innerHTML = CLIENT_LOGOS.map((c) => `<li>${esc(c.name)}</li>`).join('');
   }
 
   function renderArticles() {

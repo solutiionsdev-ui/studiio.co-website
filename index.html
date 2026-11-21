@@ -167,7 +167,9 @@
             <div><dt class="label" data-i18n="contact.social">Instagram</dt><dd><a href="https://instagram.com/studiio.co" target="_blank" rel="noopener" dir="ltr">@studiio.co</a></dd></div>
           </dl>
         </div>
-        <form class="contact-form" id="contact-form" novalidate>
+        <form class="contact-form" id="contact-form" action="contact.php" method="post" novalidate>
+          <input type="hidden" name="lang" value="en">
+          <div class="hp" aria-hidden="true"><label>Website <input name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
           <div class="field-row">
             <label class="field"><span class="label" data-i18n="form.name">Name</span><input name="name" type="text" autocomplete="name" required></label>
             <label class="field"><span class="label" data-i18n="form.company">Company</span><input name="company" type="text" autocomplete="organization"></label>
@@ -178,8 +180,8 @@
           </label>
           <label class="field"><span class="label" data-i18n="form.message">Tell us about the project</span><textarea name="message" rows="4"></textarea></label>
           <div class="form-foot">
-            <button class="pill pill--accent" type="submit"><span data-i18n="form.send">Send message</span> <span class="arrow" aria-hidden="true">→</span></button>
-            <p class="form-note label" id="form-note" role="status" data-i18n="form.note">Prototype: this form isn’t connected yet.</p>
+            <button class="pill pill--accent" type="submit" id="form-submit"><span data-i18n="form.send">Send message</span> <span class="arrow" aria-hidden="true">→</span></button>
+            <p class="form-note label" id="form-note" role="status" aria-live="polite" data-i18n="form.note">Or email us directly at info@studiio.co</p>
           </div>
         </form>
       </div>

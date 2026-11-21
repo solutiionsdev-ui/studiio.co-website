@@ -52,8 +52,13 @@
       'form.name': 'Name', 'form.company': 'Company', 'form.email': 'Email', 'form.service': 'What do you need?',
       'form.choose': 'Choose a service', 'form.all': 'Not sure yet — all of it',
       'form.message': 'Tell us about the project', 'form.send': 'Send message',
-      'form.note': 'Prototype: this form isn’t connected yet.',
-      'form.sent': 'Thanks. On the live site this message would go to info@studiio.co.',
+      'form.note': 'Or email us directly at info@studiio.co',
+      'form.sending': 'Sending…',
+      'form.sent': 'Thank you — we’ve received your message and will be in touch soon.',
+      'form.invalid': 'Please add your name and a valid email address.',
+      'form.rate': 'You’ve sent several messages already. Please email us at info@studiio.co.',
+      'form.fallback': 'We couldn’t send it from the site, so your email app has opened with your message. Just press send.',
+      'form.failed': 'Something went wrong. Please email us at info@studiio.co.',
       'footer.rights': '© 2026 STUDIIO.CO. All rights reserved.',
       'footer.top': 'Back to top',
       'reel.close': 'Close',
@@ -99,8 +104,13 @@
       'form.name': 'الاسم', 'form.company': 'الشركة', 'form.email': 'البريد الإلكتروني', 'form.service': 'ما الذي تحتاجه؟',
       'form.choose': 'اختر خدمة', 'form.all': 'لست متأكداً بعد، كل ما سبق',
       'form.message': 'أخبرنا عن المشروع', 'form.send': 'أرسل الرسالة',
-      'form.note': 'نموذج أولي: هذا النموذج غير متصل بعد.',
-      'form.sent': 'شكراً. في الموقع الفعلي ستصل هذه الرسالة إلى info@studiio.co.',
+      'form.note': 'أو راسلنا مباشرة على info@studiio.co',
+      'form.sending': 'جارٍ الإرسال…',
+      'form.sent': 'شكراً لك، وصلتنا رسالتك وسنتواصل معك قريباً.',
+      'form.invalid': 'يرجى إدخال اسمك وبريد إلكتروني صحيح.',
+      'form.rate': 'لقد أرسلت عدة رسائل بالفعل. يرجى مراسلتنا على info@studiio.co.',
+      'form.fallback': 'تعذّر الإرسال من الموقع، لذلك فتحنا تطبيق البريد برسالتك. اضغط إرسال فقط.',
+      'form.failed': 'حدث خطأ ما. يرجى مراسلتنا على info@studiio.co.',
       'footer.rights': '© 2026 STUDIIO.CO. جميع الحقوق محفوظة.',
       'footer.top': 'العودة للأعلى',
       'reel.close': 'إغلاق',
@@ -553,13 +563,62 @@
     if (e.key === back) showSlide(reelIdx - 1);
   });
 
-  // Contact form (prototype only)
-  $('#contact-form').addEventListener('submit', (e) => {
+  // Contact form → contact.php (PHP mail on Hostinger), with a mailto fallback so no enquiry is lost
+  const form = $('#contact-form');
+  const note = $('#form-note');
+  const submitBtn = $('#form-submit');
+  const setNote = (key, state) => {
+    note.textContent = t(key);
+    note.classList.toggle('sent', state === 'sent');
+    note.classList.toggle('error', state === 'error');
+  };
+  const mailtoFallback = (data) => {
+    const svc = SERVICES.find((s) => s.id === data.get('service'));
+    const subject = `New enquiry — ${svc ? L(svc.title) : 'studiio.co'} — ${data.get('name')}`;
+    const body = [
+      `Name: ${data.get('name')}`,
+      `Company: ${data.get('company') || '—'}`,
+      `Email: ${data.get('email')}`,
+      `Service: ${svc ? L(svc.title) : '—'}`,
+      '',
+      String(data.get('message') || '')
+    ].join('\n');
+    window.location.href = `mailto:info@studiio.co?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const note = $('#form-note');
-    note.textContent = t('form.sent');
-    note.classList.add('sent');
+    const nameEl = form.elements.namedItem('name');
+    const emailEl = form.elements.namedItem('email');
+    const nameOk = nameEl.value.trim() !== '';
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailEl.value.trim());
+    nameEl.setAttribute('aria-invalid', String(!nameOk));
+    emailEl.setAttribute('aria-invalid', String(!emailOk));
+    if (!nameOk || !emailOk) { setNote('form.invalid', 'error'); (nameOk ? emailEl : nameEl).focus(); return; }
+
+    form.elements.namedItem('lang').value = lang;
+    const data = new FormData(form);
+    submitBtn.disabled = true;
+    setNote('form.sending');
+    try {
+      const res = await fetch(form.action, { method: 'POST', body: data, headers: { Accept: 'application/json' } });
+      const json = await res.json().catch(() => null);
+      if (json && json.ok) { form.reset(); renderServiceSelect(); setNote('form.sent', 'sent'); }
+      else if (json && json.error === 'invalid') setNote('form.invalid', 'error');
+      else if (json && json.error === 'rate') setNote('form.rate', 'error');
+      else { mailtoFallback(data); setNote('form.fallback', 'error'); }
+    } catch (err) {
+      mailtoFallback(data);
+      setNote('form.fallback', 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
+  // Result of a no-JavaScript post (contact.php redirects back with ?sent=1 or ?sent=0)
+  try {
+    const sent = new URLSearchParams(location.search).get('sent');
+    if (sent === '1') setNote('form.sent', 'sent');
+    if (sent === '0') setNote('form.failed', 'error');
+  } catch (err) { /* ignore */ }
 
   /* ------------------------------------------------------------------
      Boot

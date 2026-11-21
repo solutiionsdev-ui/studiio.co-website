@@ -582,6 +582,10 @@ html[dir="rtl"] .field select { background-position: 6px 55%, 12px 55%; }
 .form-foot { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 8px; }
 .form-note { color: rgba(238, 236, 230, .45); }
 .form-note.sent { color: var(--accent); }
+.form-note.error { color: #FF8A6B; }
+.contact-form button[disabled] { opacity: .6; cursor: progress; }
+.field [aria-invalid="true"] { border-color: #FF8A6B; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 .site-footer { background: var(--ink); color: var(--paper); padding: 0 var(--gutter) 24px; overflow: hidden; }
 .wordmark--footer { color: var(--paper); padding-top: clamp(28px, 4vw, 64px); border-top: 1px solid var(--line-dark); }

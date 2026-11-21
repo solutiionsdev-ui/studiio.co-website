@@ -1,6 +1,6 @@
 # STUDIIO.CO — website
 
-Homepage prototype for **STUDIIO.CO**, an integrated creative & communications agency in Beirut and Dubai.
+Website for **STUDIIO.CO**, an integrated creative & communications agency connecting the Middle East and the US, with studios in Beirut, Dubai and the US.
 Bilingual: English and Arabic (right-to-left), switched with the **عربي / English** button or `?lang=ar`.
 
 Plain HTML, CSS and JavaScript — no build step.

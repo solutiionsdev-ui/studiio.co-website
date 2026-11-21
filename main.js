@@ -36,7 +36,7 @@
       'cat.pr': 'PR & Communications', 'cat.production': 'Branding & Production', 'cat.digital': 'Digital & Growth',
       'cat.web': 'Websites', 'cat.events': 'Events',
       'proof.label': '(03) In numbers',
-      'num.years': 'Years active', 'num.projects': 'Projects delivered', 'num.brands': 'Brands served', 'num.cities': 'Cities — Beirut & Dubai',
+      'num.years': 'Years active', 'num.projects': 'Projects completed', 'num.brands': 'Brands served', 'num.cities': 'Cities — Beirut & Dubai',
       'clients.label': 'Brands we’ve worked with',
       'ai.label': '(04) Powered by AI',
       'ai.body': 'studiio.ai is our in-house AI content studio. Campaign visuals, product imagery and short-form video, produced at the speed social media demands and art-directed by the same team.',

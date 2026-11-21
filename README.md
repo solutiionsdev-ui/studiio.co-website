@@ -1,6 +1,6 @@
 # STUDIIO.CO — website
 
-Website for **STUDIIO.CO**, an integrated creative & communications agency connecting the Middle East and the US, with studios in Beirut, Dubai and the US.
+Website for **STUDIIO.CO**, an integrated creative & communications agency connecting the Middle East and the US, with studios in Beirut, Dubai and California.
 Bilingual: English and Arabic (right-to-left), switched with the **عربي / English** button or `?lang=ar`.
 
 Plain HTML, CSS and JavaScript — no build step.
@@ -25,7 +25,7 @@ Then open http://localhost:4321 (or http://localhost:4321/?lang=ar for Arabic).
 | `vercel.json` | Caching headers for Vercel |
 
 Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work tiles, articles and client logos are the `SERVICES`, `WORK`, `ARTICLES` and `CLIENT_LOGOS` arrays.
-To add a client: drop a one-colour transparent PNG in `img/clients/` and add a line to `CLIENT_LOGOS` (`s` optionally scales a logo up or down).
+To add a client: drop a transparent PNG of their logo in `img/clients/` and add a line to `CLIENT_LOGOS` (`s` optionally scales a logo up or down).
 
 ## Sections
 
@@ -42,7 +42,7 @@ To add a client: drop a one-colour transparent PNG in `img/clients/` and add a l
 
 - [ ] Replace the rebuilt logo SVG with the official vector file
 - [ ] Case studies for PR, Digital, Websites and Events (those filters currently show a "request the deck" message)
-- [x] Client logo strip: 23 client logos in `img/clients/` (one ink colour, made from the brand files)
+- [x] Client logo strip: 23 client logos in `img/clients/` (brand colours, made from the brand files)
 - [ ] Sharper files for the 6 logos taken from Instagram (Beirut Beer, BYD, Île, Karen Wazen, Pilatté, us Coffee — currently 150px)
 - [x] Work grid client names confirmed (Table du Chef Jean, Grandpas, Rucker Park, MONS, ILE)
 - [x] Stats confirmed: 10+ years, 500+ projects, 80+ brands

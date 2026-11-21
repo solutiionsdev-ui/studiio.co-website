@@ -526,9 +526,9 @@ html[dir="rtl"] .logo-track { animation-name: marquee-rtl; }
 .client-logo img {
   display: block; width: auto; max-width: none;
   height: calc(var(--h) * var(--logo-scale) * 1px);
-  opacity: .78; transition: opacity .3s;
+  transition: transform .4s var(--ease);
 }
-.client-logo:hover img { opacity: 1; }
+.client-logo:hover img { transform: scale(1.06); }
 
 /* ==========================================================================
    studiio.ai

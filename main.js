@@ -123,12 +123,12 @@
      ------------------------------------------------------------------ */
   const SERVICES = [
     {
-      id: 'pr', img: 'chef.jpg',
-      title: { en: 'Public Relations & Strategic Communications', ar: 'العلاقات العامة والاتصال الاستراتيجي' },
-      lead: { en: 'We shape the story before it’s told — and make sure the right people tell it.', ar: 'نصوغ القصة قبل أن تُروى، ونضمن أن يرويها الأشخاص المناسبون.' },
+      id: 'digital', img: 'burger-cap.jpg',
+      title: { en: 'Digital Marketing & Growth', ar: 'التسويق الرقمي والنمو' },
+      lead: { en: 'Attention is good. Growth is better. We turn campaigns into results you can measure.', ar: 'الانتباه جيد، والنمو أفضل. نحوّل الحملات إلى نتائج يمكن قياسها.' },
       tags: {
-        en: ['Media relations', 'Corporate communications', 'Reputation management', 'Executive profiling', 'Thought leadership', 'Press releases', 'Media planning & buying', 'Sponsorships', 'Strategic media partnerships'],
-        ar: ['العلاقات الإعلامية', 'الاتصال المؤسسي', 'إدارة السمعة', 'بناء الحضور التنفيذي', 'القيادة الفكرية', 'البيانات الصحفية', 'تخطيط وشراء الوسائط الإعلامية', 'الرعايات', 'الشراكات الإعلامية الاستراتيجية']
+        en: ['Digital strategy', 'Paid advertising', 'SEO', 'Performance marketing', 'Lead generation', 'Campaign optimization', 'Marketing automation', 'CRM solutions', 'AI-powered marketing'],
+        ar: ['الاستراتيجية الرقمية', 'الإعلانات المدفوعة', 'تحسين محركات البحث', 'التسويق القائم على الأداء', 'توليد العملاء المحتملين', 'تحسين الحملات', 'أتمتة التسويق', 'حلول إدارة علاقات العملاء', 'التسويق بالذكاء الاصطناعي']
       }
     },
     {
@@ -141,12 +141,12 @@
       }
     },
     {
-      id: 'digital', img: 'burger-cap.jpg',
-      title: { en: 'Digital Marketing & Growth', ar: 'التسويق الرقمي والنمو' },
-      lead: { en: 'Attention is good. Growth is better. We turn campaigns into results you can measure.', ar: 'الانتباه جيد، والنمو أفضل. نحوّل الحملات إلى نتائج يمكن قياسها.' },
+      id: 'pr', img: 'chef.jpg',
+      title: { en: 'Public Relations & Strategic Communications', ar: 'العلاقات العامة والاتصال الاستراتيجي' },
+      lead: { en: 'We shape the story before it’s told — and make sure the right people tell it.', ar: 'نصوغ القصة قبل أن تُروى، ونضمن أن يرويها الأشخاص المناسبون.' },
       tags: {
-        en: ['Digital strategy', 'Paid advertising', 'SEO', 'Performance marketing', 'Lead generation', 'Campaign optimization', 'Marketing automation', 'CRM solutions', 'AI-powered marketing'],
-        ar: ['الاستراتيجية الرقمية', 'الإعلانات المدفوعة', 'تحسين محركات البحث', 'التسويق القائم على الأداء', 'توليد العملاء المحتملين', 'تحسين الحملات', 'أتمتة التسويق', 'حلول إدارة علاقات العملاء', 'التسويق بالذكاء الاصطناعي']
+        en: ['Media relations', 'Corporate communications', 'Reputation management', 'Executive profiling', 'Thought leadership', 'Press releases', 'Media planning & buying', 'Sponsorships', 'Strategic media partnerships'],
+        ar: ['العلاقات الإعلامية', 'الاتصال المؤسسي', 'إدارة السمعة', 'بناء الحضور التنفيذي', 'القيادة الفكرية', 'البيانات الصحفية', 'تخطيط وشراء الوسائط الإعلامية', 'الرعايات', 'الشراكات الإعلامية الاستراتيجية']
       }
     },
     {
@@ -292,7 +292,7 @@
   }
 
   function renderFilters() {
-    const keys = ['all', 'pr', 'production', 'digital', 'web', 'events'];
+    const keys = ['all', 'digital', 'production', 'pr', 'web', 'events'];
     $('#filters').innerHTML = keys.map((k) =>
       `<button class="pill filter" type="button" data-filter="${k}" aria-pressed="${k === filter}">${esc(k === 'all' ? t('filter.all') : t('cat.' + k))}</button>`
     ).join('');

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STUDIIO.CO — Integrated creative & communications agency · Beirut · Dubai</title>
+  <meta name="description" content="STUDIIO.CO is an integrated agency in Beirut and Dubai for public relations, branding and creative production, digital growth, websites and events.">
+  <meta name="theme-color" content="#EEECE6">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:ital,opsz,wght@1,9..144,300..500&family=IBM+Plex+Mono:wght@400;500&family=Alexandria:wght@400..800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Naskh+Arabic:wght@500;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+  <!-- ───────── Header ───────── -->
+  <header class="site-header" id="site-header">
+    <nav class="nav-group nav-main" aria-label="Main">
+      <a class="pill" href="#work" data-i18n="nav.work">Work</a>
+      <a class="pill" href="#services" data-i18n="nav.services">Services</a>
+      <a class="pill" href="#about" data-i18n="nav.about">About</a>
+      <a class="pill" href="#thinking" data-i18n="nav.thinking">Thinking</a>
+    </nav>
+
+    <div class="header-center">
+      <p class="header-note label" data-i18n="header.note">Integrated agency — Beirut · Dubai</p>
+      <a class="header-logo" href="#top" aria-label="STUDIIO.CO" dir="ltr" data-logo></a>
+    </div>
+
+    <div class="nav-group nav-actions">
+      <button class="pill lang-toggle" type="button" data-lang-toggle lang="ar">عربي</button>
+      <a class="pill pill--solid nav-cta" href="#contact" data-i18n="nav.cta">Start a project</a>
+      <button class="pill menu-btn" type="button" aria-expanded="false" aria-controls="mobile-menu" data-i18n="nav.menu">Menu</button>
+    </div>
+  </header>
+
+  <!-- Mobile menu -->
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <nav aria-label="Mobile">
+      <a href="#work" data-i18n="nav.work">Work</a>
+      <a href="#services" data-i18n="nav.services">Services</a>
+      <a href="#about" data-i18n="nav.about">About</a>
+      <a href="#thinking" data-i18n="nav.thinking">Thinking</a>
+      <a href="#contact" data-i18n="nav.cta">Start a project</a>
+    </nav>
+    <div class="mobile-menu-foot">
+      <button class="pill pill--light lang-toggle" type="button" data-lang-toggle lang="ar">عربي</button>
+      <p class="label" data-i18n="hero.location">Beirut · Dubai</p>
+    </div>
+  </div>
+
+  <main id="main">
+    <!-- ───────── Hero ───────── -->
+    <section class="hero" id="top" aria-label="Intro">
+      <h1 class="wordmark" id="wordmark" dir="ltr" data-logo data-animate><span class="sr-only">STUDIIO.CO</span></h1>
+
+      <div class="hero-meta">
+        <p class="hero-lede reveal" data-i18n="hero.lede">We build brands people talk about — and the systems that keep them growing.</p>
+        <div class="hero-side reveal">
+          <ul class="hero-services label">
+            <li><span class="idx">01</span> <span data-i18n="cat.pr">PR & Communications</span></li>
+            <li><span class="idx">02</span> <span data-i18n="cat.production">Branding & Production</span></li>
+            <li><span class="idx">03</span> <span data-i18n="cat.digital">Digital & Growth</span></li>
+            <li><span class="idx">04</span> <span data-i18n="cat.web">Websites</span></li>
+            <li><span class="idx">05</span> <span data-i18n="cat.events">Events</span></li>
+          </ul>
+          <button class="pill play-btn" type="button" data-reel-open="0"><span class="play-ico" aria-hidden="true"></span><span data-i18n="hero.reel">Play reel</span></button>
+        </div>
+      </div>
+
+      <div class="strip" id="strip" aria-label="Recent work">
+        <div class="strip-track" id="strip-track"></div>
+      </div>
+    </section>
+
+    <!-- ───────── About statement ───────── -->
+    <section class="statement" id="about">
+      <p class="label section-label" data-i18n="about.label">(00) Who we are</p>
+      <h2 class="statement-text reveal" data-i18n-html="about.title">We shape how brands <em>look</em>, what they <em>say</em>, where they’re <em>seen</em> and how they <em>grow</em>.</h2>
+      <div class="statement-foot reveal">
+        <p data-i18n="about.body">One team for strategy, story, media and production. From the first press release to launch night, everything speaks with one voice — in Arabic and English.</p>
+        <a class="link-arrow" href="#contact"><span data-i18n="about.cta">Work with us</span> <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+    </section>
+
+    <!-- ───────── Services ───────── -->
+    <section class="services" id="services">
+      <div class="section-head">
+        <div>
+          <p class="label section-label" data-i18n="services.label">(01) What we do</p>
+          <h2 class="section-title" data-i18n-html="services.title">Five disciplines.<br>One team.</h2>
+        </div>
+        <p class="section-aside" data-i18n="services.aside">Hire us for one, or let us run all five. Every client gets one team and one point of contact.</p>
+      </div>
+      <div class="svc-list" id="svc-list"></div>
+    </section>
+
+    <!-- ───────── Work ───────── -->
+    <section class="work" id="work">
+      <div class="section-head">
+        <div>
+          <p class="label section-label" data-i18n="work.label">(02) Selected work</p>
+          <h2 class="section-title" data-i18n="work.title">Work that gets noticed.</h2>
+        </div>
+        <a class="link-arrow" href="#work"><span data-i18n="work.all">View all work</span> <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+      <div class="filters" id="filters" role="group" aria-label="Filter work by service"></div>
+      <div class="grid" id="work-grid"></div>
+    </section>
+
+    <!-- ───────── Proof ───────── -->
+    <section class="proof" aria-labelledby="proof-label">
+      <p class="label section-label proof-label" id="proof-label" data-i18n="proof.label">(03) In numbers</p>
+      <div class="numbers">
+        <div class="num reveal"><span class="num-value" dir="ltr">10+</span><span class="label" data-i18n="num.years">Years active</span></div>
+        <div class="num reveal"><span class="num-value" dir="ltr">250+</span><span class="label" data-i18n="num.projects">Projects delivered</span></div>
+        <div class="num reveal"><span class="num-value" dir="ltr">80+</span><span class="label" data-i18n="num.brands">Brands served</span></div>
+        <div class="num reveal"><span class="num-value" dir="ltr">02</span><span class="label" data-i18n="num.cities">Cities — Beirut & Dubai</span></div>
+      </div>
+      <div class="clients">
+        <p class="label clients-label" data-i18n="clients.label">Brands we’ve worked with</p>
+        <div class="marquee" aria-hidden="true"><div class="marquee-track" id="clients-track"></div></div>
+        <ul class="sr-only" id="clients-list"></ul>
+      </div>
+    </section>
+
+    <!-- ───────── studiio.ai ───────── -->
+    <section class="ai" id="ai">
+      <div class="ai-copy">
+        <p class="label section-label" data-i18n="ai.label">(04) Powered by AI</p>
+        <h2 class="ai-title" dir="ltr">studiio<span>.ai</span></h2>
+        <p class="ai-body reveal" data-i18n="ai.body">studiio.ai is our in-house AI content studio. Campaign visuals, product imagery and short-form video, produced at the speed social media demands and art-directed by the same team.</p>
+        <a class="pill pill--solid ai-cta" href="https://studiio.ai" target="_blank" rel="noopener"><span data-i18n="ai.cta">See the AI portfolio on studiio.ai</span> <span class="arrow arrow--up" aria-hidden="true">↗</span></a>
+      </div>
+      <div class="ai-media">
+        <figure class="reveal"><img src="img/ai-latte.jpg" alt="AI-generated lifestyle image of a woman holding a latte" loading="lazy" width="1208" height="1500"></figure>
+        <figure class="reveal"><img src="img/ai-drinks.jpg" alt="AI-generated product image of drinks" loading="lazy" width="1208" height="1500"></figure>
+      </div>
+    </section>
+
+    <!-- ───────── Thinking ───────── -->
+    <section class="thinking" id="thinking">
+      <div class="section-head">
+        <div>
+          <p class="label section-label" data-i18n="thinking.label">(05) Thinking</p>
+          <h2 class="section-title" data-i18n="thinking.title">Notes from the studio.</h2>
+        </div>
+        <a class="link-arrow" href="#thinking"><span data-i18n="thinking.all">All articles</span> <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+      <div class="articles" id="articles"></div>
+    </section>
+
+    <!-- ───────── Contact ───────── -->
+    <section class="contact" id="contact">
+      <p class="label section-label" data-i18n="contact.label">(06) Start a project</p>
+      <h2 class="contact-title" data-i18n-html="contact.title">Let’s make <em>noise.</em></h2>
+      <div class="contact-grid">
+        <div class="contact-info">
+          <p class="contact-lede" data-i18n="contact.body">Tell us what you’re building, launching or fixing. We’ll come back with a plan.</p>
+          <dl>
+            <div><dt class="label" data-i18n="contact.email">Email</dt><dd><a href="mailto:info@studiio.co" dir="ltr">info@studiio.co</a></dd></div>
+            <div><dt class="label" data-i18n="contact.phone">Phone</dt><dd><a href="tel:+96176530287" dir="ltr">+961 76 530 287</a></dd></div>
+            <div><dt class="label" data-i18n="contact.offices">Offices</dt><dd data-i18n="hero.location">Beirut · Dubai</dd></div>
+            <div><dt class="label" data-i18n="contact.social">Instagram</dt><dd><a href="https://instagram.com/studiio.co" target="_blank" rel="noopener" dir="ltr">@studiio.co</a></dd></div>
+          </dl>
+        </div>
+        <form class="contact-form" id="contact-form" novalidate>
+          <div class="field-row">
+            <label class="field"><span class="label" data-i18n="form.name">Name</span><input name="name" type="text" autocomplete="name" required></label>
+            <label class="field"><span class="label" data-i18n="form.company">Company</span><input name="company" type="text" autocomplete="organization"></label>
+          </div>
+          <label class="field"><span class="label" data-i18n="form.email">Email</span><input name="email" type="email" autocomplete="email" required dir="ltr"></label>
+          <label class="field"><span class="label" data-i18n="form.service">What do you need?</span>
+            <select name="service" id="service-select" required></select>
+          </label>
+          <label class="field"><span class="label" data-i18n="form.message">Tell us about the project</span><textarea name="message" rows="4"></textarea></label>
+          <div class="form-foot">
+            <button class="pill pill--accent" type="submit"><span data-i18n="form.send">Send message</span> <span class="arrow" aria-hidden="true">→</span></button>
+            <p class="form-note label" id="form-note" role="status" data-i18n="form.note">Prototype: this form isn’t connected yet.</p>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ───────── Footer ───────── -->
+  <footer class="site-footer">
+    <p class="wordmark wordmark--footer" dir="ltr" aria-hidden="true" data-logo></p>
+    <div class="footer-bar">
+      <p class="label" data-i18n="footer.rights">© 2026 STUDIIO.CO. All rights reserved.</p>
+      <nav class="footer-links label" aria-label="Footer">
+        <a href="https://instagram.com/studiio.co" target="_blank" rel="noopener">Instagram</a>
+        <a href="https://studiio.ai" target="_blank" rel="noopener">studiio.ai</a>
+        <a href="#top" data-i18n="footer.top">Back to top</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- Cursor + hover preview -->
+  <div class="cursor" id="cursor" aria-hidden="true"><span data-i18n="hero.reel">Play reel</span></div>
+  <div class="svc-preview" id="svc-preview" aria-hidden="true"><img alt=""></div>
+
+  <!-- Reel lightbox -->
+  <div class="reel" id="reel" role="dialog" aria-modal="true" aria-label="Reel" hidden>
+    <div class="reel-progress"><span id="reel-bar"></span></div>
+    <div class="reel-top">
+      <span class="label" id="reel-count">01 / 14</span>
+      <button class="pill pill--light" type="button" id="reel-close" data-i18n="reel.close">Close</button>
+    </div>
+    <img class="reel-img" id="reel-img" alt="">
+    <div class="reel-bottom">
+      <span class="reel-cap" id="reel-cap"></span>
+      <div class="reel-nav">
+        <button class="pill pill--light" type="button" id="reel-prev" aria-label="Previous"><span class="arrow" aria-hidden="true">←</span></button>
+        <button class="pill pill--light" type="button" id="reel-next" aria-label="Next"><span class="arrow" aria-hidden="true">→</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+{
+  "version": 2,
+  "logos": [
+    {
+      "name": "Capelli Sport",
+      "file": "capelli.png",
+      "w": 480,
+      "h": 174
+    },
+    {
+      "name": "Birdy Fam",
+      "file": "birdy-fam.png",
+      "w": 408,
+      "h": 480,
+      "s": 1.15
+    },
+    {
+      "name": "Qube",
+      "file": "qube.png",
+      "w": 480,
+      "h": 180
+    },
+    {
+      "name": "Karen Wazen Beach Club",
+      "file": "karen-wazen.png",
+      "w": 220,
+      "h": 192,
+      "s": 1.25
+    },
+    {
+      "name": "BYD",
+      "file": "byd.png",
+      "w": 248,
+      "h": 58
+    },
+    {
+      "name": "The Protein Bar",
+      "file": "protein-bar.png",
+      "w": 480,
+      "h": 306
+    },
+    {
+      "name": "Reflekt",
+      "file": "reflekt.png",
+      "w": 480,
+      "h": 246
+    },
+    {
+      "name": "Mōns",
+      "file": "mons.png",
+      "w": 480,
+      "h": 132
+    },
+    {
+      "name": "Beirut Beer",
+      "file": "beirut-beer.png",
+      "w": 246,
+      "h": 102
+    },
+    {
+      "name": "Luma",
+      "file": "luma.png",
+      "w": 480,
+      "h": 140
+    },
+    {
+      "name": "The Lab",
+      "file": "the-lab.png",
+      "w": 480,
+      "h": 330
+    },
+    {
+      "name": "Josée Efrem",
+      "file": "josee-efrem.png",
+      "w": 480,
+      "h": 88
+    },
+    {
+      "name": "Caliber",
+      "file": "caliber.png",
+      "w": 480,
+      "h": 95
+    },
+    {
+      "name": "Île Beach Bar",
+      "file": "ile.png",
+      "w": 138,
+      "h": 108
+    },
+    {
+      "name": "Mikkai",
+      "file": "mikkai.png",
+      "w": 480,
+      "h": 200
+    },
+    {
+      "name": "Step Ahead",
+      "file": "step-ahead.png",
+      "w": 480,
+      "h": 107
+    },
+    {
+      "name": "Wimsi",
+      "file": "wimsi.png",
+      "w": 480,
+      "h": 167
+    },
+    {
+      "name": "Pilatté Wellness",
+      "file": "pilatte.png",
+      "w": 184,
+      "h": 84
+    },
+    {
+      "name": "Fine B",
+      "file": "fine-b.png",
+      "w": 480,
+      "h": 302
+    },
+    {
+      "name": "Quwati",
+      "file": "quwati.png",
+      "w": 480,
+      "h": 136
+    },
+    {
+      "name": "us Coffee",
+      "file": "us-coffee.png",
+      "w": 210,
+      "h": 108
+    },
+    {
+      "name": "Stepahead Sports School",
+      "file": "sss.png",
+      "w": 480,
+      "h": 438
+    },
+    {
+      "name": "UNCVRD",
+      "file": "uncvrd.png",
+      "w": 480,
+      "h": 84
+    }
+  ]
+}

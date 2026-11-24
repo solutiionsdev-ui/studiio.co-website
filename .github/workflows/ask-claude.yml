@@ -1,0 +1,93 @@
+# "Ask Claude" from the online admin panel (studiio.co/admin).
+# The panel starts this workflow with a prompt; Claude Code edits the repo and the
+# changes are opened as a pull request. Publishing in the panel merges it (→ Hostinger deploys).
+#
+# One-time setup (see admin/README.md):
+#   1. Install the Claude GitHub app on this repo:  run `claude` then `/install-github-app`
+#   2. Add a repo secret: CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`, uses your Claude plan)
+#      or ANTHROPIC_API_KEY (pay per use).
+#   3. Settings → Actions → General → Workflow permissions: tick
+#      "Allow GitHub Actions to create and approve pull requests".
+name: Ask Claude
+run-name: "Ask Claude · ${{ inputs.task_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: What should Claude change on the site?
+        required: true
+        type: string
+      task_id:
+        description: Task id from the admin panel (YYYYMMDD-HHMMSS-xxxxxx)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: ask-claude-${{ inputs.task_id }}
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check task id
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+        run: |
+          [[ "$TASK_ID" =~ ^[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$ ]] || { echo "Bad task id: $TASK_ID"; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: >-
+            --model claude-opus-5-5
+            --max-budget-usd 3
+            --allowedTools Read,Edit,Write,Glob,Grep
+          prompt: |
+            You are working on the STUDIIO.CO website through the "Ask Claude" box in its admin panel. Follow CLAUDE.md.
+            Site content lives in content/*.json; prefer changing those files over code. Keep English and Arabic in step.
+            Never invent clients, results, numbers or quotes. Use only images that already exist in img/. Keep JSON valid.
+            Do not commit, push or open pull requests yourself; the workflow does that.
+            Finish with a short summary of what you changed (file and field).
+
+            Task from the site owner:
+            ${{ inputs.prompt }}
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK_ID: ${{ inputs.task_id }}
+          PROMPT: ${{ inputs.prompt }}
+          BASE: ${{ github.ref_name }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Claude made no file changes."
+            exit 0
+          fi
+          SUMMARY=""
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+            SUMMARY=$(jq -r '[.[]? | select(.type? == "result") | .result][-1] // empty' "$EXECUTION_FILE" 2>/dev/null || true)
+          fi
+          BRANCH="claude/task-$TASK_ID"
+          TITLE="Ask Claude: $(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c1-60)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add -A
+          git commit -m "$TITLE" -m "$PROMPT" -m "Task $TASK_ID from the STUDIIO.CO admin panel."
+          git push origin "$BRANCH"
+          printf '%s\n\n---\n**Request:** %s\n\n_Task %s from the STUDIIO.CO admin panel. Publish or discard it there._\n' \
+            "${SUMMARY:-Claude Code made the changes below.}" "$PROMPT" "$TASK_ID" > pr-body.md
+          gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body-file pr-body.md

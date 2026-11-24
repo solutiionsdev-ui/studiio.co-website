@@ -1,0 +1,29 @@
+[
+  {
+    "img": "portrait.jpg",
+    "cat": "pr",
+    "mins": 5,
+    "title": {
+      "en": "Why your launch needs a press strategy before a media budget",
+      "ar": "لماذا يحتاج إطلاقك إلى استراتيجية إعلامية قبل ميزانية الإعلانات"
+    }
+  },
+  {
+    "img": "drape.jpg",
+    "cat": "production",
+    "mins": 7,
+    "title": {
+      "en": "Bilingual by design: building brands that speak Arabic and English",
+      "ar": "ثنائية اللغة منذ البداية: بناء علامات تتحدث العربية والإنجليزية"
+    }
+  },
+  {
+    "img": "players.jpg",
+    "cat": "events",
+    "mins": 4,
+    "title": {
+      "en": "The event is the content: planning activations for the feed",
+      "ar": "الفعالية هي المحتوى: كيف نخطط التفعيلات لمنصات التواصل"
+    }
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "sectors": {
+    "fnb": {
+      "en": "F&B",
+      "ar": "مطاعم ومشروبات"
+    },
+    "sport": {
+      "en": "Sport",
+      "ar": "رياضة"
+    },
+    "wellness": {
+      "en": "Wellness",
+      "ar": "عافية"
+    },
+    "fashion": {
+      "en": "Fashion",
+      "ar": "أزياء"
+    },
+    "jewelry": {
+      "en": "Jewelry",
+      "ar": "مجوهرات"
+    },
+    "ai": {
+      "en": "AI",
+      "ar": "ذكاء اصطناعي"
+    }
+  },
+  "categories": {
+    "pr": {
+      "en": "PR",
+      "ar": "علاقات عامة"
+    },
+    "production": {
+      "en": "Production",
+      "ar": "إنتاج"
+    },
+    "digital": {
+      "en": "Digital",
+      "ar": "رقمي"
+    },
+    "web": {
+      "en": "Web",
+      "ar": "مواقع"
+    },
+    "events": {
+      "en": "Events",
+      "ar": "فعاليات"
+    }
+  }
+}

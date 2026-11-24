@@ -1,0 +1,179 @@
+[
+  {
+    "id": "digital",
+    "img": "burger-cap.jpg",
+    "title": {
+      "en": "Digital Marketing & Growth",
+      "ar": "التسويق الرقمي والنمو"
+    },
+    "lead": {
+      "en": "Attention is good. Growth is better. We turn campaigns into results you can measure.",
+      "ar": "الانتباه جيد، والنمو أفضل. نحوّل الحملات إلى نتائج يمكن قياسها."
+    },
+    "tags": {
+      "en": [
+        "Digital strategy",
+        "Paid advertising",
+        "SEO",
+        "Performance marketing",
+        "Lead generation",
+        "Campaign optimization",
+        "Marketing automation",
+        "CRM solutions",
+        "AI-powered marketing"
+      ],
+      "ar": [
+        "الاستراتيجية الرقمية",
+        "الإعلانات المدفوعة",
+        "تحسين محركات البحث",
+        "التسويق القائم على الأداء",
+        "توليد العملاء المحتملين",
+        "تحسين الحملات",
+        "أتمتة التسويق",
+        "حلول إدارة علاقات العملاء",
+        "التسويق بالذكاء الاصطناعي"
+      ]
+    }
+  },
+  {
+    "id": "production",
+    "img": "jewelry.jpg",
+    "title": {
+      "en": "Branding & Creative Production",
+      "ar": "الهوية والإنتاج الإبداعي"
+    },
+    "lead": {
+      "en": "Identities and content with a point of view — produced in-house, from concept to final frame.",
+      "ar": "هويات ومحتوى بوجهة نظر واضحة، نُنتجها داخلياً من الفكرة حتى اللقطة الأخيرة."
+    },
+    "tags": {
+      "en": [
+        "Brand strategy & positioning",
+        "Visual identity",
+        "Creative direction",
+        "Storytelling",
+        "Campaign development",
+        "Graphic design",
+        "Photography",
+        "Videography",
+        "Podcasts",
+        "Branded content"
+      ],
+      "ar": [
+        "استراتيجية العلامة وتموضعها",
+        "الهوية البصرية",
+        "الإدارة الإبداعية",
+        "سرد القصص",
+        "تطوير الحملات",
+        "التصميم الجرافيكي",
+        "التصوير الفوتوغرافي",
+        "التصوير المرئي",
+        "البودكاست",
+        "المحتوى الترويجي للعلامة"
+      ]
+    }
+  },
+  {
+    "id": "pr",
+    "img": "chef.jpg",
+    "title": {
+      "en": "Public Relations & Strategic Communications",
+      "ar": "العلاقات العامة والاتصال الاستراتيجي"
+    },
+    "lead": {
+      "en": "We shape the story before it’s told — and make sure the right people tell it.",
+      "ar": "نصوغ القصة قبل أن تُروى، ونضمن أن يرويها الأشخاص المناسبون."
+    },
+    "tags": {
+      "en": [
+        "Media relations",
+        "Corporate communications",
+        "Reputation management",
+        "Executive profiling",
+        "Thought leadership",
+        "Press releases",
+        "Media planning & buying",
+        "Sponsorships",
+        "Strategic media partnerships"
+      ],
+      "ar": [
+        "العلاقات الإعلامية",
+        "الاتصال المؤسسي",
+        "إدارة السمعة",
+        "بناء الحضور التنفيذي",
+        "القيادة الفكرية",
+        "البيانات الصحفية",
+        "تخطيط وشراء الوسائط الإعلامية",
+        "الرعايات",
+        "الشراكات الإعلامية الاستراتيجية"
+      ]
+    }
+  },
+  {
+    "id": "web",
+    "img": "cocktail.jpg",
+    "mock": "browser",
+    "title": {
+      "en": "Website Design & Development",
+      "ar": "تصميم وتطوير المواقع الإلكترونية"
+    },
+    "lead": {
+      "en": "Fast, bilingual and built to convert — websites that work as hard as your team.",
+      "ar": "مواقع سريعة وثنائية اللغة ومصمَّمة لتحويل الزوار إلى عملاء، تعمل بجدّ مثل فريقك."
+    },
+    "tags": {
+      "en": [
+        "Corporate websites",
+        "E-commerce platforms",
+        "Landing pages",
+        "UX/UI design",
+        "Website redesign",
+        "Technical SEO",
+        "System integrations",
+        "Maintenance & hosting"
+      ],
+      "ar": [
+        "المواقع المؤسسية",
+        "منصات التجارة الإلكترونية",
+        "صفحات الهبوط",
+        "تصميم تجربة وواجهة المستخدم",
+        "إعادة تصميم المواقع",
+        "تحسين محركات البحث التقني",
+        "تكامل الأنظمة",
+        "الصيانة والاستضافة"
+      ]
+    }
+  },
+  {
+    "id": "events",
+    "img": "tournament.jpg",
+    "title": {
+      "en": "Events & Experiential Marketing",
+      "ar": "الفعاليات وتسويق التجارب"
+    },
+    "lead": {
+      "en": "Moments people show up for, film and remember.",
+      "ar": "لحظات يحضرها الناس، ويصوّرونها، ويتذكرونها."
+    },
+    "tags": {
+      "en": [
+        "Corporate events",
+        "Product launches",
+        "Brand activations",
+        "Experiential campaigns",
+        "VIP experiences",
+        "Press events",
+        "Event planning & production"
+      ],
+      "ar": [
+        "الفعاليات المؤسسية",
+        "إطلاق المنتجات",
+        "تفعيل العلامات التجارية",
+        "الحملات التفاعلية",
+        "تجارب كبار الشخصيات",
+        "الفعاليات الصحفية",
+        "تخطيط الفعاليات وإنتاجها"
+      ]
+    }
+  }
+]

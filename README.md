@@ -8,10 +8,11 @@ Plain HTML, CSS and JavaScript — no build step.
 ## Run locally
 
 ```bash
-python3 -m http.server 4321
+~/.local/bin/php -S localhost:4380 admin/dev/router.php
 ```
 
-Then open http://localhost:4321 (or http://localhost:4321/?lang=ar for Arabic).
+Then open http://localhost:4380 (or http://localhost:4380/?lang=ar for Arabic). The admin panel is at http://localhost:4380/admin/ (see [admin/README.md](admin/README.md)).
+A plain static server (`python3 -m http.server 4321`) still works for the site alone; the contact form and admin need PHP.
 
 ## Files
 
@@ -19,13 +20,17 @@ Then open http://localhost:4321 (or http://localhost:4321/?lang=ar for Arabic).
 | --- | --- |
 | `index.html` | Page structure |
 | `styles.css` | Design system and layout (monochrome + one accent `#FF4B1F`) |
-| `main.js` | All copy in English and Arabic, content data (services, work, articles), interactions |
+| `main.js` | Loads the content files and renders the page; interactions |
+| `content/` | All copy and content as JSON, edited in the admin panel or by Claude Code (see `CLAUDE.md`) |
+| `admin/` | Admin panel: content editors, leads, Ask Claude, publish ([admin/README.md](admin/README.md)) |
+| `contact.php` | Contact form: saves the lead for the admin and emails info@studiio.co |
 | `img/` | Web-sized photos from the studiio.co portfolio, plus `studiio-logo.svg` |
 | `favicon.svg` | Browser tab icon |
 | `vercel.json` | Caching headers for Vercel |
 
-Copy lives in the `T` object in `main.js` (keys `en` and `ar`); services, work tiles, articles and client logos are the `SERVICES`, `WORK`, `ARTICLES` and `CLIENT_LOGOS` arrays.
-To add a client: drop a transparent PNG of their logo in `img/clients/` and add a line to `CLIENT_LOGOS` (`s` optionally scales a logo up or down).
+Copy lives in `content/copy.json` (keys `en` and `ar`); services, work tiles, hero reel, articles and client logos are `content/services.json`, `work.json`, `reel.json`, `articles.json` and `clients.json`.
+Edit them in the admin panel (`/admin`) or ask Claude Code; both work on the same files.
+To add a client: Admin → Client logos → Add logo (or drop a transparent PNG in `img/clients/` and add it to `content/clients.json`; `s` optionally scales a logo up or down).
 
 ## Sections
 
@@ -48,7 +53,7 @@ To add a client: drop a transparent PNG of their logo in `img/clients/` and add 
 - [x] Stats confirmed: 10+ years, 500+ projects, 80+ brands
 - [ ] Real articles (current titles are samples)
 - [ ] Native Arabic copywriter review
-- [ ] Connect the contact form (currently prototype-only)
+- [x] Connect the contact form (emails info@studiio.co; also saved as a lead in the admin)
 
 ## Deploy
 

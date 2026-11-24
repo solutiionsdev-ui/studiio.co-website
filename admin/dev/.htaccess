@@ -1,0 +1,2 @@
+# Never served: these files are only included by the admin from disk.
+Require all denied

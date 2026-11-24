@@ -34,6 +34,18 @@ function ask(string $question, string $default = ''): string
 
 function ask_secret(string $question): string
 {
+    // On a Mac, ask in a normal password box (shows dots, paste works) instead of a hidden terminal prompt.
+    if (PHP_OS_FAMILY === 'Darwin' && is_executable('/usr/bin/osascript') && !getenv('STUDIIO_NO_DIALOG')) {
+        echo "$question: a box has opened on your screen…\n";
+        $q = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $question) . '"';
+        $script = "text returned of (display dialog $q default answer \"\" with hidden answer with title \"STUDIIO.CO admin setup\" buttons {\"Cancel\", \"OK\"} default button \"OK\")";
+        [$code, $out] = run_cmd(['/usr/bin/osascript', '-e', $script], getcwd() ?: '/');
+        if ($code !== 0) {
+            fwrite(STDERR, "Cancelled. Nothing was saved.\n");
+            exit(1);
+        }
+        return trim($out);
+    }
     echo "$question: ";
     $tty = stream_isatty(STDIN);
     if ($tty) {

@@ -204,6 +204,7 @@ const NAV = [
   ['clients', 'Client logos'],
   ['label', 'Business'],
   ['leads', 'Leads'],
+  ['reels', 'Reels'],
   ['label', 'Claude Code'],
   ['claude', 'Ask Claude'],
   ['publish', 'Publish'],
@@ -220,7 +221,7 @@ function renderShell() {
         <a class="side-logo" href="#/overview"><img src="../img/studiio-logo.svg" alt="STUDIIO.CO"></a>
         <div class="side-tag">Admin · ${S.backend === 'github' ? 'Online' : 'This Mac'}</div>
         <nav class="nav" aria-label="Admin">
-          ${NAV.map(([id, label]) => id === 'label'
+          ${NAV.filter(([id]) => id !== 'reels' || S.reels).map(([id, label]) => id === 'label'
             ? html`<div class="nav-label">${label}</div>`
             : html`<a href="#/${id}" data-nav="${id}"><span>${label}</span><span class="badge" data-badge="${id}" hidden></span></a>`)}
         </nav>
@@ -751,6 +752,764 @@ PAGES.leads = async (el, page) => {
   el.addEventListener('input', (e) => { if (e.target.matches('[data-q]')) { q = e.target.value.trim().toLowerCase(); render(); } });
   render();
 };
+
+/* ---------- Reels (client reels edited with Reels Montage PRO on this Mac) ---------- */
+
+const REEL_STATUS = { editing: 'Editing', review: 'Client review', approved: 'Approved', delivered: 'Delivered' };
+const REEL_JOB = { prepare: 'Preparing the video', auto: 'Splitting into beats', preview: 'Preview frames', render: 'Rendering the video' };
+// Effects that take the place of the big word (keep in step with NOBIG in lib/reels-bridge.js).
+const REEL_NOBIG = new Set(['title', 'bracketWord', 'ghostWord', 'noiseWord', 'focusWord', 'ribbon', 'ctaWord', 'typeLine', 'behindWord', 'walls', 'wordSwarm', 'titleWall', 'split', 'uiWall', 'duoCards', 'collage', 'shutter', 'carouselWide', 'flowNodes', 'phaseCards', 'halfBlur', 'mapRoute']);
+// Gallery names (bank/gallery.html) that are video effects in the editor.
+const REEL_GALLERY_VFX = { backgroundSwap: 'bg', outline: 'outline', clones: 'clones', echo: 'echo', windowUI: 'window', effectsGrid: 'grid', dzoom: 'zoom' };
+
+const fmtT = (s, tenths = false) => {
+  s = Math.max(0, +s || 0);
+  const m = Math.floor(s / 60);
+  const r = s - m * 60;
+  return `${m}:${tenths ? r.toFixed(1).padStart(4, '0') : String(Math.floor(r)).padStart(2, '0')}`;
+};
+
+const reelJobLine = (job) => {
+  if (!job) return html`<span class="muted">—</span>`;
+  const p = job.progress || {};
+  if (job.status === 'running') {
+    const pct = p.total ? ` ${Math.round((100 * p.done) / p.total)}%` : p.of ? ` ${p.step}/${p.of}` : '';
+    return html`<span class="job-line"><span class="spinner"></span> ${REEL_JOB[job.kind]}${pct}<small>${p.label || ''}</small></span>`;
+  }
+  if (job.status === 'failed') return html`<span class="status failed">${job.kind} failed</span>`;
+  return html`<span class="muted">${job.kind === 'render' ? 'Rendered' : job.kind === 'preview' ? 'Previewed' : 'Ready'} ${fmtDate(job.finished_at)}</span>`;
+};
+
+/** Claude's reply as safe HTML: **bold** becomes bold, everything else stays plain text. */
+const chatText = (text) => String(text).split('**').map((part, i) => (i % 2 ? html`<b>${part}</b>` : part));
+
+/** Send a video to the server in 4 MB pieces (works with PHP's default upload limits). */
+async function uploadReelVideo(file, onProgress) {
+  const id = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const CHUNK = 4 * 1024 * 1024;
+  let offset = 0;
+  onProgress(0);
+  while (offset < file.size) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await fetch(`${API}?${new URLSearchParams({ action: 'reel-upload', id, offset })}`, {
+          method: 'POST', credentials: 'same-origin', body: file.slice(offset, offset + CHUNK),
+          headers: { 'X-CSRF-Token': S.csrf, 'Content-Type': 'application/octet-stream', Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => null);
+        if (res.status === 409 && data?.size != null) { offset = data.size; break; }
+        if (!res.ok) throw Object.assign(new Error(data?.error || `Upload failed (${res.status})`), { fatal: res.status < 500 });
+        offset = data.size;
+        break;
+      } catch (e) {
+        if (e.fatal || attempt >= 4) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
+    onProgress(offset / file.size);
+  }
+  return id;
+}
+
+function newReelPanel(clients) {
+  const { el: p, close } = openPanel(html`
+    <div class="drawer-head"><h2>New reel</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+    <form class="stack" data-form>
+      <label class="field">Title<input type="text" name="title" required maxlength="80" placeholder="Reflekt launch, take 2"></label>
+      <label class="field">Client<select name="client">
+        <option value="">My own (STUDIIO)</option>
+        ${clients.map((c) => html`<option value="${c.id}">${c.name}</option>`)}
+        <option value="__other">Someone else…</option></select>
+        <span class="hint">Clients come from your leads marked contacted, qualified or won.</span></label>
+      <label class="field" data-other hidden>Client name<input type="text" name="clientName" maxlength="120"></label>
+      <fieldset class="field-set"><legend>What kind of video is it?</legend>
+        <label class="radio"><input type="radio" name="mode" value="raw" checked> <span><b>A raw take.</b> Cut the pauses, stumbles and repeats, and switch the framing.</span></label>
+        <label class="radio"><input type="radio" name="mode" value="edited"> <span><b>Already edited.</b> Keep the cuts, only add effects.</span></label>
+      </fieldset>
+      <label class="field">Video (.mov or .mp4, vertical, one person talking)<input type="file" name="file" accept="video/mp4,video/quicktime,.mov,.mp4,.m4v" required></label>
+      <div class="progress" data-progress hidden><i></i><span></span></div>
+      <p class="muted small">The video stays on this Mac, in ~/reels-montage-pro/projects. Preparing takes a few minutes: transcript, face, cut-outs.</p>
+      <div class="drawer-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Upload and prepare</button></div>
+    </form>`);
+  const form = $('[data-form]', p);
+  form.elements.client.addEventListener('change', () => { $('[data-other]', p).hidden = form.elements.client.value !== '__other'; });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = form.elements.file.files[0];
+    if (!file) return;
+    const btn = $('button[type=submit]', form);
+    const bar = $('[data-progress]', p);
+    btn.disabled = true;
+    bar.hidden = false;
+    try {
+      const upload = await uploadReelVideo(file, (f) => {
+        $('i', bar).style.width = `${Math.round(f * 100)}%`;
+        $('span', bar).textContent = `Uploading ${Math.round(f * 100)}% of ${(file.size / 1048576).toFixed(0)} MB`;
+      });
+      $('span', bar).textContent = 'Starting…';
+      const sel = form.elements.client;
+      const client = sel.value === '__other' ? { id: '', name: form.elements.clientName.value.trim() }
+        : sel.value ? { id: sel.value, name: sel.selectedOptions[0].textContent } : { id: '', name: '' };
+      const r = await api('reel-create', { method: 'POST', body: { title: form.elements.title.value, upload, filename: file.name, mode: form.elements.mode.value, client } });
+      close();
+      location.hash = `#/reels/${r.reel.slug}`;
+    } catch (err) {
+      showError(err);
+      btn.disabled = false;
+      bar.hidden = true;
+    }
+  });
+}
+
+PAGES.reels = async (el, page) => {
+  const slug = (location.hash.match(/^#\/reels\/([a-z0-9-]+)/) || [])[1];
+  if (!S.reels) {
+    put(el, html`<div class="page-head"><div><h1>Reels</h1><p>The reel editor runs on the Mac that has Reels Montage PRO. Open the admin there: <code>http://localhost:4380/admin/</code></p></div></div>`);
+    return;
+  }
+  if (slug) return reelEditor(el, page, slug);
+  let d = await api('reels');
+  if (!page.alive()) return;
+  const render = () => put(el, html`
+    <div class="page-head"><div><h1>Reels</h1><p>Client reels edited with Reels Montage PRO on this Mac. Each video is split into beats, one per spoken phrase. Pick an effect for each beat, or tell Claude what to change.</p></div>
+      <div class="head-actions"><button class="btn btn-primary" type="button" data-new>New reel</button></div></div>
+    ${d.reels.length ? html`<table class="table"><thead><tr><th>Reel</th><th>Client</th><th>Status</th><th>Progress</th></tr></thead><tbody>
+      ${d.reels.map((r) => html`<tr data-slug="${r.slug}" tabindex="0">
+        <td><b>${r.title}</b><div class="sub">${[r.duration ? fmtT(r.duration) : '', r.beats ? plural(r.beats, 'beat') : '', r.rendered ? 'rendered' : ''].filter(Boolean).join(' · ') || 'new'}</div></td>
+        <td>${r.client?.name || html`<span class="muted">Own</span>`}</td>
+        <td><span class="status reel-${r.status}">${REEL_STATUS[r.status] || r.status}</span></td>
+        <td>${reelJobLine(r.job)}</td></tr>`)}
+    </tbody></table>` : html`<div class="empty">No reels yet. Click New reel and pick a vertical talking-head video.</div>`}`);
+  render();
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-new]')) newReelPanel(d.clients);
+    const tr = e.target.closest('tr[data-slug]');
+    if (tr) location.hash = `#/reels/${tr.dataset.slug}`;
+  });
+  el.addEventListener('keydown', (e) => { const tr = e.target.closest('tr[data-slug]'); if (tr && e.key === 'Enter') location.hash = `#/reels/${tr.dataset.slug}`; });
+  page.timers.push(setInterval(async () => {
+    if (!page.alive() || !d.reels.some((r) => r.job?.status === 'running')) return;
+    try { d = await api('reels'); if (page.alive()) render(); } catch (e) { /* try again next time */ }
+  }, 3000));
+};
+
+async function reelEditor(el, page, slug) {
+  let d = await api('reel', { params: { slug } });
+  if (!page.alive()) return;
+  const proj = `${d.base}projects/${slug}/`;
+  const cat = Object.fromEntries(d.catalog.map((c) => [c.name, c]));
+  const fps = d.project.fps || 30;
+
+  /* ----- still preparing (or failed) ----- */
+  if (!d.ready || !d.beats) {
+    const job = d.jobs.prepare || d.jobs.auto;
+    const failed = job?.status === 'failed';
+    const p = job?.progress || {};
+    put(el, html`
+      <div class="page-head"><div><a class="back" href="#/reels">← Reels</a><h1>${d.reel.title}</h1><p>${d.reel.client?.name || 'Own reel'}</p></div></div>
+      <div class="card prep">
+        ${failed ? html`<h2>Preparing the video failed</h2><p>The engine stopped. Its last lines are below.</p><pre class="log">${job.log || '(no output)'}</pre>
+          <p><button class="btn btn-primary" type="button" data-retry>Try again</button></p>`
+        : job?.status === 'running' ? html`<h2><span class="spinner"></span> ${p.label || 'Preparing'}…</h2>
+          <div class="progress"><i style="width:${Math.round((100 * (p.step || 0)) / (p.of || 6))}%"></i></div>
+          <p class="muted">Step ${p.step || 0} of ${p.of || 6}. The engine converts the video, writes the transcript, finds your face and cuts you out frame by frame. A 30-second clip takes a few minutes. You can leave this page.</p>
+          ${job.log ? html`<pre class="log small">${job.log}</pre>` : ''}`
+        : d.ready ? html`<h2>Almost ready</h2><p>The video is prepared but has no beats yet.</p><p><button class="btn btn-primary" type="button" data-auto>Split it into beats</button></p>`
+        : html`<h2>Nothing to show yet</h2><p class="muted">This reel has no prepared video.</p>`}
+      </div>`);
+    el.addEventListener('click', async (e) => {
+      const kind = e.target.closest('[data-retry]') ? (d.jobs.prepare ? 'prepare' : 'auto') : e.target.closest('[data-auto]') ? 'auto' : null;
+      if (!kind) return;
+      try { await api('reel-job', { method: 'POST', body: { slug, kind } }); route(); } catch (err) { showError(err); }
+    });
+    if (job?.status === 'running') page.timers.push(setTimeout(() => { if (page.alive()) route(); }, 2500));
+    return;
+  }
+
+  /* ----- the editor ----- */
+  let doc = clone(d.beats);
+  let saved = clone(d.beats);
+  let version = d.version;
+  let sel = -1;
+  let view = 'edit';
+  let live = true;
+  let photos = d.photos;
+  let jobs = d.jobs;
+  let chat = d.chat;
+  let files = d.files;
+  const clientName = d.reel.client?.name || 'Own reel';
+
+  put(el, html`
+    <div class="page-head reel-head">
+      <div><a class="back" href="#/reels">← Reels</a><h1 data-title>${d.reel.title}</h1>
+        <p>${clientName} · ${fmtT(d.project.dur)} · ${plural(doc.beats.length, 'beat')}</p></div>
+      <div class="head-actions">
+        <label class="sr-only" for="reel-status">Status</label>
+        <select id="reel-status" data-status>${d.statuses.map((s) => html`<option value="${s}" ${s === d.reel.status ? 'selected' : ''}>${REEL_STATUS[s] || s}</option>`)}</select>
+        <button class="btn" type="button" data-details>Details</button>
+      </div>
+    </div>
+    <div class="reel-grid">
+      <section class="reel-left" aria-label="Preview">
+        <div class="seg" role="group" aria-label="View" data-views></div>
+        <div class="stage" data-stage>
+          <video data-video playsinline preload="auto" src="${proj}src/main.mp4?v=${files.main}"></video>
+          <iframe data-layer="back" title="Effects behind you" sandbox="allow-scripts" tabindex="-1" src="${proj}overlay.html?layer=back"></iframe>
+          <iframe data-layer="front" title="Effects in front" sandbox="allow-scripts" tabindex="-1" src="${proj}overlay.html?layer=front"></iframe>
+          <video data-final playsinline controls hidden></video>
+        </div>
+        <div class="stage-ctl" data-ctl>
+          <button class="btn btn-sm" type="button" data-play>Play</button>
+          <input type="range" min="0" max="${d.project.dur}" step="0.01" value="0" data-seek aria-label="Position">
+          <span class="mono" data-time>0:00.0</span>
+        </div>
+        <label class="check small"><input type="checkbox" data-live checked> Show effects live</label>
+        <p class="muted small stage-note">Close to the final look. Video effects and the glass blur only show in Preview frames and the render.</p>
+        <p class="stage-err" data-stage-err hidden></p>
+        <div class="reel-actions" data-actions></div>
+        <div data-sheet></div>
+      </section>
+      <section class="reel-beats" aria-label="Beats">
+        <div class="beats-head"><h2>Beats</h2><span class="muted small">Click a beat to change its big word and effect.</span></div>
+        <div class="note warn" data-outside hidden></div>
+        <ol class="beats" data-beats></ol>
+        <div class="reel-more" data-more></div>
+      </section>
+      <section class="reel-chat" aria-label="Ask Claude">
+        <div class="beats-head"><h2>Ask Claude</h2><span class="muted small">Claude edits this reel’s beats.</span></div>
+        <div class="chat-log" data-log></div>
+        <form class="chat-form" data-chat-form>
+          <textarea name="message" rows="3" maxlength="2000" placeholder="Use a collage with my 4 product photos at 0:07, and less text after 0:20"></textarea>
+          <button class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </section>
+    </div>`);
+
+  const video = $('[data-video]', el);
+  const finalV = $('[data-final]', el);
+  const stageEl = $('[data-stage]', el);
+  const layers = { back: $('[data-layer=back]', el), front: $('[data-layer=front]', el) };
+  const ready = { back: false, front: false };
+  const beatsEl = $('[data-beats]', el);
+
+  /* live preview: the engine's overlay page in two sandboxed frames over the video */
+  const fit = () => { const k = stageEl.clientWidth / 1080; stageEl.style.setProperty('--k', k); };
+  fit();
+  const ro = new ResizeObserver(fit);
+  ro.observe(stageEl);
+  const post = (msg) => Object.entries(layers).forEach(([k, f]) => { if (ready[k] && f.contentWindow) f.contentWindow.postMessage(msg, '*'); });
+  const applyLive = () => post({ type: 'apply', doc, t: video.currentTime });
+  const onMsg = (e) => {
+    if (!page.alive()) { window.removeEventListener('message', onMsg); ro.disconnect(); return; }
+    const layer = Object.keys(layers).find((k) => layers[k].contentWindow === e.source);
+    if (!layer || !e.data) return;
+    if (e.data.type === 'studiio-ready') {
+      ready[layer] = true;
+      layers[layer].contentWindow.postMessage({ type: 'apply', doc, t: video.currentTime }, '*');
+    } else if (e.data.type === 'studiio-error') {
+      const box = $('[data-stage-err]', el);
+      box.hidden = false;
+      box.textContent = `Preview error (${layer} layer): ${e.data.msg}`;
+    }
+  };
+  window.addEventListener('message', onMsg);
+
+  // Person cut-out: hide the back layer where you are, using the engine's mask for this frame.
+  const maskCv = Object.assign(document.createElement('canvas'), { width: 270, height: 480 });
+  const maskCx = maskCv.getContext('2d', { willReadFrequently: true });
+  const maskCache = new Map();
+  let maskWant = -1;
+  let maskBusy = false;
+  const applyMask = (url) => { layers.back.style.webkitMaskImage = layers.back.style.maskImage = `url(${url})`; };
+  const loadMask = () => {
+    const fr = maskWant;
+    maskBusy = true;
+    const img = new Image();
+    img.onload = () => {
+      maskCx.clearRect(0, 0, 270, 480);
+      maskCx.drawImage(img, 0, 0, 270, 480);
+      const px = maskCx.getImageData(0, 0, 270, 480);
+      const a = px.data;
+      for (let k = 0; k < a.length; k += 4) { a[k + 3] = 255 - a[k]; a[k] = a[k + 1] = a[k + 2] = 0; }
+      maskCx.putImageData(px, 0, 0);
+      const url = maskCv.toDataURL('image/png');
+      maskCache.set(fr, url);
+      if (maskCache.size > 150) maskCache.delete(maskCache.keys().next().value);
+      if (maskWant === fr) applyMask(url);
+      maskBusy = false;
+      if (maskWant !== fr) loadMask();
+    };
+    img.onerror = () => { maskBusy = false; };
+    img.src = `${proj}masks/m_${String(fr).padStart(5, '0')}.png`;
+  };
+  const wantMask = (t) => {
+    if (!files.masks) return;
+    const fr = Math.max(0, Math.min((d.project.frames || 1) - 1, Math.round(t * fps)));
+    maskWant = fr;
+    if (maskCache.has(fr)) applyMask(maskCache.get(fr));
+    else if (!maskBusy) loadMask();
+  };
+
+  let lastT = -1;
+  let playingIdx = -2;
+  const tick = (force = false) => {
+    const t = video.currentTime;
+    if (!force && Math.abs(t - lastT) < 0.001) return;
+    lastT = t;
+    if (live) { post({ t }); wantMask(t); }
+    $('[data-time]', el).textContent = fmtT(t, true);
+    $('[data-seek]', el).value = t;
+    const idx = doc.beats.findIndex((b, i) => t >= b.a && (t < b.b || i === doc.beats.length - 1));
+    if (idx !== playingIdx) {
+      playingIdx = idx;
+      $$('.beat', beatsEl).forEach((li) => li.classList.toggle('playing', +li.dataset.i === idx));
+    }
+  };
+  const loop = () => { if (!page.alive()) return; tick(); if (!video.paused) requestAnimationFrame(loop); };
+  video.addEventListener('play', () => { $('[data-play]', el).textContent = 'Pause'; requestAnimationFrame(loop); });
+  video.addEventListener('pause', () => { $('[data-play]', el).textContent = 'Play'; tick(true); });
+  video.addEventListener('seeked', () => tick(true));
+  video.addEventListener('loadeddata', () => tick(true));
+  const into = (b) => b.a + Math.min(0.7, (b.b - b.a) / 2);
+  const seek = (t) => { video.currentTime = Math.max(0, Math.min(d.project.dur - 0.05, t)); if (video.paused) tick(true); };
+
+  /* views: edit (live) / final render */
+  const renderViews = () => {
+    put($('[data-views]', el), html`<button type="button" class="tab" data-view="edit" aria-pressed="${view === 'edit'}">Editing</button>
+      <button type="button" class="tab" data-view="final" aria-pressed="${view === 'final'}" ${files.out ? '' : 'disabled'} title="${files.out ? '' : 'Render the video first'}">Final video</button>`);
+    const final = view === 'final' && files.out;
+    finalV.hidden = !final;
+    [video, layers.back, layers.front].forEach((x) => { x.hidden = !!final; });
+    $('[data-ctl]', el).hidden = !!final;
+    if (final) { video.pause(); const src = `${proj}out.mp4?v=${files.out}`; if (!finalV.src.endsWith(src)) finalV.src = src; } else finalV.pause();
+  };
+
+  /* beats list */
+  const effectOptions = (cur) => html`<option value="">No effect</option>
+    ${Object.entries(d.groups).map(([g, label]) => html`<optgroup label="${label}">${d.catalog.filter((c) => c.group === g).map((c) => html`<option value="${c.name}" ${c.name === cur ? 'selected' : ''}>${c.name}${c.good ? ' — ' + (c.good.length > 44 ? c.good.slice(0, 42) + '…' : c.good) : ''}</option>`)}</optgroup>`)}`;
+
+  const photoPicker = (b, need) => {
+    const chosen = b.fields.photos;
+    return html`<div class="field"><span class="field-label">Photos ${need ? html`<span class="hint">(at least ${need})</span>` : html`<span class="hint">(optional)</span>`}</span>
+      ${photos.length ? html`<div class="pick-photos">${photos.map((p) => {
+        const n = chosen.indexOf(p) + 1;
+        return html`<button type="button" class="pick-photo${n ? ' on' : ''}" data-photo="${p}" title="${p}"><img src="${proj}photos/${encodeURIComponent(p)}" alt="" loading="lazy">${n ? html`<b>${n}</b>` : ''}</button>`;
+      })}</div>` : ''}
+      ${chosen.length < need ? html`<p class="note warn small">This effect needs ${plural(need, 'photo')}${photos.length ? ': click them above in the order you want' : ': upload them first'}. Without them it shows nothing.</p>` : ''}
+      <label class="btn btn-sm upload-btn">Upload photos…<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-photo-upload></label></div>`;
+  };
+
+  const beatDetail = (b) => {
+    const c = cat[b.effect];
+    const f = c?.fields || {};
+    const nobig = REEL_NOBIG.has(b.effect);
+    return html`<div class="beat-detail">
+      <p class="beat-hint">${c ? html`<b>${c.name}</b>${c.say ? html` · ${c.say}` : ''}${c.good ? html`. Good for ${c.good}.` : ''}` : 'No effect on this beat.'}
+        <button type="button" class="link" data-browse>See all effects</button></p>
+      <div class="grid-2">
+        <label class="field">Big word<input type="text" data-k="big" value="${b.big}" maxlength="40" placeholder="none"></label>
+        <label class="field">Small line above<input type="text" data-k="eyebrow" value="${b.eyebrow}" maxlength="80" placeholder="none"></label>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" data-k="accent" ${b.accent ? 'checked' : ''}> Accent colour</label>
+        <label class="check"><input type="checkbox" data-k="behind" ${b.behind ? 'checked' : ''}> Behind the head</label>
+        ${nobig && b.big ? html`<span class="muted small">This effect replaces the big word (the accent colour still applies to word effects).</span>` : ''}
+      </div>
+      ${f.s ? html`<label class="field">${f.s}<input type="text" data-f="say" value="${b.fields.say}" maxlength="140"></label>` : ''}
+      ${f.i ? html`<label class="field">${f.i}<textarea data-f="items" rows="3">${b.fields.items.join('\n')}</textarea></label>` : ''}
+      ${f.n ? html`<label class="field">${f.n}<input type="text" data-f="number" value="${b.fields.number}" maxlength="14"></label>` : ''}
+      ${'p' in f ? photoPicker(b, f.p) : ''}
+      ${b.effect === 'cta' ? html`<p class="muted small">Uses the code word under Ending, below the beats.</p>` : ''}
+    </div>`;
+  };
+
+  const renderBeats = () => {
+    put(beatsEl, html`${doc.beats.map((b, i) => {
+      const needs = cat[b.effect]?.fields?.p || 0;
+      const short = needs && b.fields.photos.length < needs;
+      return html`<li class="beat${i === sel ? ' open' : ''}${i === playingIdx ? ' playing' : ''}" data-i="${i}">
+        <div class="beat-row" data-toggle>
+          <button type="button" class="beat-time mono" data-seek-to="${b.a}" title="Play from ${fmtT(b.a, true)}">${fmtT(b.a)}</button>
+          <div class="beat-text"><span class="beat-said">${b.text || '…'}</span>
+            ${b.big ? html`<span class="beat-big${b.accent ? ' accent' : ''}${REEL_NOBIG.has(b.effect) ? ' off' : ''}">${b.big}</span>` : ''}
+            ${short ? html`<span class="beat-warn">needs photos</span>` : ''}</div>
+          <select class="beat-fx" data-k="effect" aria-label="Effect for beat ${i + 1}">${effectOptions(b.effect)}</select>
+        </div>
+        ${i === sel ? beatDetail(b) : ''}
+      </li>`;
+    })}`);
+  };
+
+  const renderMore = () => {
+    put($('[data-more]', el), html`
+      <div class="reel-section">
+        <h3>Ending</h3>
+        <div class="grid-2">
+          <label class="field">Code word people comment<input type="text" data-cta="word" value="${doc.cta.word}" maxlength="20" placeholder="none: ends with “follow for more”"></label>
+          <label class="field">What they get<input type="text" data-cta="gift" value="${doc.cta.gift}" maxlength="40"></label>
+        </div>
+      </div>
+      <div class="reel-section">
+        <h3>Video effects</h3>
+        <p class="muted small">These change the picture itself (new background, outline, clones…). 1.5 to 4 seconds each, at most 3. They show in Preview frames and the render, not in the live preview.</p>
+        ${doc.vfx.length ? html`<div class="vfx-list">${doc.vfx.map((v, i) => {
+          const def = d.vfx.find((x) => x.kind === v.kind) || { opts: [] };
+          return html`<div class="vfx-row" data-v="${i}">
+            <select data-vk="kind" aria-label="Kind">${d.vfx.map((x) => html`<option value="${x.kind}" ${x.kind === v.kind ? 'selected' : ''}>${x.label}</option>`)}</select>
+            <label>from<input type="number" step="0.1" min="0" data-vk="a" value="${v.a}"></label>
+            <label>to<input type="number" step="0.1" min="0" data-vk="b" value="${v.b}"></label>
+            ${def.opts.includes('color') ? html`<input type="color" data-vk="color" value="${v.color || '#F2632A'}" aria-label="Colour">` : ''}
+            ${def.opts.includes('caption') ? html`<input type="text" data-vk="caption" value="${v.caption || ''}" maxlength="60" placeholder="Caption" aria-label="Caption">` : ''}
+            <button type="button" class="icon-btn" data-vfx-del="${i}" aria-label="Remove">✕</button></div>`;
+        })}</div>` : ''}
+        <button type="button" class="btn btn-sm" data-vfx-add ${doc.vfx.length >= 3 ? 'disabled' : ''}>Add a video effect here (${fmtT(video.currentTime, true)})</button>
+      </div>
+      <div class="reel-section">
+        <h3>Photos for this reel</h3>
+        <p class="muted small">For collage, orbit, phone and other photo effects. Pick them inside a beat.</p>
+        ${photos.length ? html`<div class="pick-photos static">${photos.map((p) => html`<span class="pick-photo"><img src="${proj}photos/${encodeURIComponent(p)}" alt="${p}" loading="lazy"></span>`)}</div>` : ''}
+        <label class="btn btn-sm upload-btn">Upload photos…<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-photo-upload></label>
+      </div>`);
+  };
+
+  const touch = (rebuild = false) => {
+    setDirty(!same(doc, saved));
+    if (rebuild) renderBeats();
+    applyLive();
+  };
+
+  /* jobs: preview frames and render */
+  const busy = () => Object.values(jobs).some((j) => j?.status === 'running') || chat.running;
+  const renderActions = () => {
+    const pv = jobs.preview;
+    const rd = jobs.render;
+    const run = Object.values(jobs).find((j) => j?.status === 'running');
+    const p = run?.progress || {};
+    const overlapStop = rd?.status === 'failed' && /overlap/i.test(rd.log || '');
+    put($('[data-actions]', el), html`
+      <div class="row-btns">
+        <button class="btn" type="button" data-job="preview" ${busy() ? 'disabled' : ''}>Preview frames</button>
+        <button class="btn btn-accent" type="button" data-job="render" ${busy() ? 'disabled' : ''}>Render video</button>
+        ${files.out ? html`<a class="btn" href="${proj}out.mp4?download=1&v=${files.out}">Download</a>` : ''}
+      </div>
+      ${run ? html`<div class="job-box"><span class="spinner"></span> ${REEL_JOB[run.kind]}: ${p.label || ''}
+        ${p.total ? html`<div class="progress"><i style="width:${Math.round((100 * p.done) / p.total)}%"></i><span>${Math.round((100 * p.done) / p.total)}%</span></div>` : ''}</div>` : ''}
+      ${!run && rd?.status === 'failed' ? html`<div class="job-box bad">
+        <b>${overlapStop ? 'The render stopped: some text overlaps.' : 'The render failed.'}</b>
+        ${overlapStop ? html`<p class="small">Run Preview frames to see where, then change those beats. Or render anyway if the overlap is on purpose.</p>` : ''}
+        <pre class="log small">${rd.log}</pre>
+        ${overlapStop ? html`<button class="btn btn-sm" type="button" data-job="render" data-force>Render anyway</button>` : ''}</div>` : ''}
+      ${!run && pv?.status === 'failed' ? html`<div class="job-box bad"><b>Preview frames failed.</b><pre class="log small">${pv.log}</pre></div>` : ''}
+      ${!run && rd?.status === 'done' && files.out ? html`<p class="small muted">Rendered ${fmtDate(rd.finished_at)}. Watch it under Final video.</p>` : ''}`);
+  };
+
+  const renderSheet = () => {
+    const pv = jobs.preview;
+    const box = $('[data-sheet]', el);
+    if (!files.preview || pv?.status !== 'done' || !pv.times?.length) { put(box, ''); return; }
+    const n = pv.times.length;
+    const over = pv.overlaps || [];
+    put(box, html`<div class="reel-section">
+      <h3>Preview frames <span class="muted small">${fmtDate(pv.finished_at)}</span></h3>
+      <div class="sheet">${pv.times.map((t, i) => html`<button type="button" class="sheet-tile" data-seek-to="${t}" title="Go to ${fmtT(t, true)}"
+        style="background-image:url('${proj}preview.jpg?v=${files.preview}');background-size:${n * 100}% 100%;background-position:${n > 1 ? (i / (n - 1)) * 100 : 0}% 0"><span>${fmtT(t, true)}</span></button>`)}</div>
+      ${over.length ? html`<div class="note warn small"><b>${plural(over.length, 'overlap')} found.</b> The render stops until they’re fixed (or you render anyway).
+        <ul>${over.slice(0, 8).map((o) => html`<li><button type="button" class="link" data-seek-to="${o.t}">${fmtT(o.t, true)}</button> ${o.what}</li>`)}</ul></div>`
+      : html`<p class="small muted">No overlaps: text never covers the face or other text.</p>`}
+    </div>`);
+  };
+
+  /* chat */
+  const renderChat = () => {
+    const log = $('[data-log]', el);
+    put(log, html`${chat.messages.length ? '' : html`<div class="chat-empty">
+        <p>Tell Claude what to change, in your own words or with effect names. For example:</p>
+        ${['Make the hook stronger: a title effect on the first beat with the word EDIT', 'Add a collage of my photos where I talk about clients', 'Less text: no big words after 0:15', 'Pick different effects so nothing repeats'].map((x) => html`<button type="button" class="chip" data-example>${x}</button>`)}
+      </div>`}
+      ${chat.messages.map((m) => m.role === 'user'
+        ? html`<div class="msg me">${m.text}</div>`
+        : html`<div class="msg claude${m.error ? ' bad' : ''}">${m.text ? html`<div>${chatText(m.text)}</div>` : ''}${m.error ? html`<div class="err">${m.error}</div>` : ''}
+            ${m.changed?.length ? html`<div class="chips small">${m.changed.map((t) => typeof t === 'number' ? html`<button type="button" class="chip" data-goto="${t}">${fmtT(t, true)}</button>` : html`<span class="chip">${t === 'vfx' ? 'video effects' : 'ending'}</span>`)}</div>` : ''}
+            ${m.cost != null ? html`<div class="muted small">$${m.cost.toFixed(2)}</div>` : ''}</div>`)}
+      ${chat.running ? html`<div class="msg claude"><span class="spinner"></span> Claude is editing…${chat.steps?.length ? html`<div class="muted small">${chat.steps.at(-1)}</div>` : ''}</div>` : ''}`);
+    log.scrollTop = log.scrollHeight;
+    const form = $('[data-chat-form]', el);
+    $('button', form).disabled = !!chat.running || S.claude !== 'local';
+    if (S.claude !== 'local') form.elements.message.placeholder = 'Ask Claude is off on this Mac (claude.runner is not "local").';
+  };
+
+  const reloadBeats = async () => {
+    const r = await api('reel', { params: { slug } });
+    if (!page.alive()) return;
+    d = r;
+    doc = clone(r.beats);
+    saved = clone(r.beats);
+    version = r.version;
+    photos = r.photos;
+    setDirty(false);
+    $('[data-outside]', el).hidden = true;
+    renderBeats();
+    renderMore();
+    applyLive();
+  };
+
+  /* save */
+  page.save = async () => {
+    const r = await api('reel-beats', { method: 'POST', body: { slug, doc, version } });
+    doc = clone(r.doc);
+    saved = clone(r.doc);
+    version = r.version;
+    setDirty(false);
+    warnings(r.warnings);
+    if (!r.warnings?.length) toast('Saved.');
+    renderBeats();
+    renderMore();
+    applyLive();
+  };
+
+  /* events */
+  el.addEventListener('click', async (e) => {
+    const t = e.target;
+    const seekTo = t.closest('[data-seek-to]');
+    if (seekTo) {
+      e.preventDefault();
+      const li0 = seekTo.closest('.beat');
+      seek(li0 ? into(doc.beats[+li0.dataset.i]) : +seekTo.dataset.seekTo);
+      const li = seekTo.closest('.beat');
+      if (li && +li.dataset.i !== sel) { sel = +li.dataset.i; renderBeats(); }
+      return;
+    }
+    if (t.closest('[data-play]')) { if (video.paused) video.play(); else video.pause(); return; }
+    const v = t.closest('[data-view]');
+    if (v && !v.disabled) { view = v.dataset.view; renderViews(); return; }
+    const go = t.closest('[data-goto]');
+    if (go) { const i = doc.beats.findIndex((b) => Math.abs(b.a - +go.dataset.goto) < 0.01); if (i >= 0) { sel = i; renderBeats(); seek(into(doc.beats[i])); $(`.beat[data-i="${i}"]`, beatsEl)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } return; }
+    if (t.closest('[data-example]')) { const f = $('[data-chat-form]', el); f.elements.message.value = t.closest('[data-example]').textContent; f.elements.message.focus(); return; }
+    const row = t.closest('[data-toggle]');
+    if (row && !t.closest('select, button, input')) {
+      const i = +row.closest('.beat').dataset.i;
+      sel = sel === i ? -1 : i;
+      renderBeats();
+      if (sel === i) seek(into(doc.beats[i]));
+      return;
+    }
+    const ph = t.closest('[data-photo]');
+    if (ph) {
+      const b = doc.beats[sel];
+      const list = b.fields.photos;
+      const k = list.indexOf(ph.dataset.photo);
+      if (k >= 0) list.splice(k, 1); else list.push(ph.dataset.photo);
+      touch(true);
+      return;
+    }
+    if (t.closest('[data-browse]')) { browseReelEffects(d.base, cat, (name, vfxKind) => {
+      if (vfxKind) { addVfx(vfxKind); return; }
+      doc.beats[sel].effect = name;
+      touch(true);
+    }); return; }
+    if (t.closest('[data-vfx-add]')) { addVfx('bg'); return; }
+    const del = t.closest('[data-vfx-del]');
+    if (del) { doc.vfx.splice(+del.dataset.vfxDel, 1); renderMore(); touch(); return; }
+    const job = t.closest('[data-job]');
+    if (job && !job.disabled) {
+      try {
+        if (current.dirty) await page.save();
+        const r = await api('reel-job', { method: 'POST', body: { slug, kind: job.dataset.job, force: job.hasAttribute('data-force') } });
+        jobs[r.job.kind] = r.job;
+        renderActions();
+      } catch (err) { showError(err); }
+      return;
+    }
+    if (t.closest('[data-details]')) { reelDetails(d, slug, (meta) => { d.reel = meta; $('[data-title]', el).textContent = meta.title; }); return; }
+    if (t.closest('[data-reload-beats]')) { reloadBeats(); }
+  });
+
+  const addVfx = (kind) => {
+    if (doc.vfx.length >= 3) { toast('A reel takes at most 3 video effects.', 'warn'); return; }
+    const t0 = Math.round(video.currentTime * 10) / 10;
+    const beat = doc.beats.find((b) => t0 >= b.a && t0 < b.b);
+    const a = beat ? beat.a : t0;
+    doc.vfx.push({ a, b: Math.round(Math.min(d.project.dur, a + 2.5) * 10) / 10, kind, ...(kind === 'bg' || kind === 'outline' || kind === 'window' ? { color: kind === 'bg' ? '#F2632A' : '#9DB9CC' } : {}), ...(kind === 'window' || kind === 'grid' ? { caption: '' } : {}) });
+    doc.vfx.sort((x, y) => x.a - y.a);
+    renderMore();
+    touch();
+  };
+
+  el.addEventListener('input', (e) => {
+    const t = e.target;
+    const li = t.closest('.beat');
+    if (li && t.dataset.k && t.dataset.k !== 'effect') {
+      const b = doc.beats[+li.dataset.i];
+      b[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.value;
+      if (t.dataset.k === 'big') b.big = t.value.toUpperCase();
+      touch();
+      if (t.type === 'checkbox') renderBeats();
+      return;
+    }
+    if (li && t.dataset.f) {
+      const b = doc.beats[+li.dataset.i];
+      b.fields[t.dataset.f] = t.dataset.f === 'items' ? t.value.split('\n').map((s) => s.trim()).filter(Boolean) : t.value;
+      touch();
+      return;
+    }
+    if (t.dataset.cta) { doc.cta[t.dataset.cta] = t.value; touch(); return; }
+    const vr = t.closest('[data-v]');
+    if (vr && t.dataset.vk) {
+      const v = doc.vfx[+vr.dataset.v];
+      v[t.dataset.vk] = t.type === 'number' ? Math.max(0, +t.value || 0) : t.value;
+      touch();
+      if (t.dataset.vk === 'kind') renderMore();
+      return;
+    }
+    if (t.matches('[data-seek]')) { video.pause(); seek(+t.value); return; }
+    if (t.matches('[data-live]')) {
+      live = t.checked;
+      layers.back.style.visibility = layers.front.style.visibility = live ? '' : 'hidden';
+      tick(true);
+    }
+  });
+
+  el.addEventListener('change', async (e) => {
+    const t = e.target;
+    if (t.matches('.beat-fx')) {
+      const i = +t.closest('.beat').dataset.i;
+      doc.beats[i].effect = t.value;
+      sel = i;
+      touch(true);
+      seek(into(doc.beats[i]));
+      return;
+    }
+    if (t.matches('[data-status]')) {
+      try { const r = await api('reel-meta', { method: 'POST', body: { slug, status: t.value } }); d.reel = r.reel; toast(`Marked as ${REEL_STATUS[t.value]}.`); } catch (err) { showError(err); }
+      return;
+    }
+    if (t.matches('[data-photo-upload]')) {
+      const list = [...t.files];
+      t.value = '';
+      for (const file of list) {
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          form.append('slug', slug);
+          const r = await api('reel-photo', { method: 'POST', form, params: { slug } });
+          photos = r.photos;
+          if (sel >= 0 && 'p' in (cat[doc.beats[sel].effect]?.fields || {})) doc.beats[sel].fields.photos.push(r.name);
+        } catch (err) { showError(err); }
+      }
+      renderBeats();
+      renderMore();
+      touch();
+    }
+  });
+
+  $('[data-chat-form]', el).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const box = e.target.elements.message;
+    const message = box.value.trim();
+    if (!message) return;
+    try {
+      if (current.dirty) await page.save();
+      chat = await api('reel-chat', { method: 'POST', body: { slug, message } }).then((r) => r.chat);
+      box.value = '';
+      renderChat();
+      renderActions();
+    } catch (err) { showError(err); }
+  });
+  $('[data-chat-form] textarea', el).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.target.form.requestSubmit(); }
+  });
+
+  /* keep up with jobs, Claude, and edits made outside this page */
+  let polling = false;
+  page.timers.push(setInterval(async () => {
+    if (!page.alive() || polling) return;
+    const active = busy();
+    if (!active && Date.now() - (page.lastPoll || 0) < 8000) return;
+    polling = true;
+    page.lastPoll = Date.now();
+    try {
+      const st = await api('reel-status', { params: { slug } });
+      if (!page.alive()) return;
+      const was = JSON.stringify([jobs, chat.running, chat.messages.length, files]);
+      jobs = st.jobs;
+      files = st.files;
+      const chatChanged = st.chat.running !== chat.running || st.chat.messages.length !== chat.messages.length || JSON.stringify(st.chat.steps) !== JSON.stringify(chat.steps);
+      chat = st.chat;
+      if (chatChanged) renderChat();
+      if (was !== JSON.stringify([jobs, chat.running, chat.messages.length, files])) { renderActions(); renderSheet(); renderViews(); }
+      if (st.version && st.version !== version) {
+        if (!current.dirty) { await reloadBeats(); toast('Beats updated.'); }
+        else {
+          const box = $('[data-outside]', el);
+          box.hidden = false;
+          put(box, html`Claude (or someone in Claude Code) changed this reel’s beats while you were editing. <button type="button" class="btn btn-sm" data-reload-beats>Load their version</button> <span class="small">(your unsaved changes here would be lost)</span>`);
+        }
+      }
+    } catch (err) { /* next time */ } finally { polling = false; }
+  }, 2000));
+
+  renderViews();
+  renderBeats();
+  renderMore();
+  renderActions();
+  renderSheet();
+  renderChat();
+}
+
+/** The live effect gallery (bank/gallery.html). Open an effect there, then use it for the beat. */
+function browseReelEffects(base, cat, onPick) {
+  const { el: m, close } = openPanel(html`
+    <div class="drawer-head"><h2>All effects</h2>
+      <div class="head-actions"><span class="muted small" data-pick-note>Click an effect to open it.</span>
+        <button class="btn btn-primary" type="button" data-use disabled>Use this effect</button>
+        <button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div></div>
+    <iframe class="gallery-frame" title="Effect gallery" src="${base}bank/gallery.html"></iframe>`, { modal: true });
+  m.classList.add('modal-gallery');
+  const frame = $('iframe', m);
+  const btn = $('[data-use]', m);
+  const note = $('[data-pick-note]', m);
+  let pick = null;
+  const timer = setInterval(() => {
+    if (!m.isConnected) { clearInterval(timer); return; }
+    let name = '';
+    try {
+      const gd = frame.contentDocument;
+      if (gd?.getElementById('player')?.classList.contains('on')) name = (gd.getElementById('pn')?.textContent || '').trim();
+    } catch (e) { /* not loaded yet */ }
+    const base = name.split(' ')[0];
+    const vfx = REEL_GALLERY_VFX[base];
+    pick = cat[base] ? { name: base } : vfx ? { vfx } : null;
+    btn.disabled = !pick;
+    btn.textContent = pick?.vfx ? `Add “${base}” as a video effect` : pick ? `Use ${base} for this beat` : 'Use this effect';
+    note.textContent = name && !pick ? `${name} isn’t available in the editor yet.` : name ? '' : 'Click an effect to open it.';
+  }, 250);
+  btn.addEventListener('click', () => { if (!pick) return; onPick(pick.name, pick.vfx); close(); });
+}
+
+function reelDetails(d, slug, onSaved) {
+  const r = d.reel;
+  const { el: p, close } = openPanel(html`
+    <div class="drawer-head"><h2>Reel details</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+    <label class="field">Title<input type="text" name="title" value="${r.title}" maxlength="80"></label>
+    <label class="field">Client name<input type="text" name="client" value="${r.client?.name || ''}" maxlength="120" placeholder="Own reel"></label>
+    <dl class="dl">
+      <dt>Source video</dt><dd>${r.source?.name || '—'} ${r.source?.mode === 'edited' ? '(already edited)' : r.source ? '(raw take)' : ''}</dd>
+      <dt>Created</dt><dd>${fmtDate(r.created_at) || '—'}</dd>
+      <dt>Folder</dt><dd><code>${d.project.path}</code></dd>
+      <dt>Length</dt><dd>${fmtT(d.project.dur, true)} · ${d.project.frames} frames</dd>
+    </dl>
+    <div class="note small">In Claude Code you can edit the same reel: <code>cd ~/reels-montage-pro</code>, start <code>claude</code>, and ask it to change <code>projects/${slug}/beats.json</code>. This page picks up the changes by itself.</div>
+    <div class="drawer-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="button" data-save-meta>Save</button></div>`);
+  $('[data-save-meta]', p).addEventListener('click', async () => {
+    try {
+      const name = $('[name=client]', p).value.trim();
+      const res = await api('reel-meta', { method: 'POST', body: { slug, title: $('[name=title]', p).value, client: { id: name === (r.client?.name || '') ? r.client?.id || '' : '', name } } });
+      onSaved(res.reel);
+      close();
+      toast('Saved.');
+    } catch (e) { showError(e); }
+  });
+}
 
 /* ---------- Ask Claude ---------- */
 

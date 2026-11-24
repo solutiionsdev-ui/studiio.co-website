@@ -12,6 +12,7 @@ What it manages today:
 | Copy (EN / AR) | `content/copy.json`: every string on the page, side by side |
 | Client logos | `content/clients.json`: upload, reorder, rename, scale |
 | Leads | Enquiries from the contact form: status, private notes, reply, CSV export. Stored privately, never in Git. |
+| Reels | (this Mac only) Client reels edited with Reels Montage PRO: beats, an effect per beat, live preview, chat with Claude, preview frames, render |
 | Ask Claude | Send a task to Claude Code; review its changes; publish or discard |
 | Publish | (this Mac) commit + push the changes you pick → Hostinger deploys `main` |
 | Raw JSON | Any content file directly (services, articles, sectors…), with the same checks |
@@ -46,6 +47,19 @@ claude auth login
 ```
 
 (Or put an Anthropic API key in `claude.api_key` in `.private/config.php`.)
+
+### Reels (this Mac only)
+
+The **Reels** page is an editor for client reels, built on Reels Montage PRO in `~/reels-montage-pro` (found automatically; set `reels.dir` in `.private/config.php` if it moves). It only appears on the Mac that has the package, never online: the engine needs Whisper, Apple Vision, ffmpeg and Chrome.
+
+1. **New reel**: title, client (from your leads), raw take or already edited, and the video. The panel uploads it and runs the engine's `new_project.sh` (transcript, face, person cut-outs). A 20-second clip takes about a minute.
+2. **Beats**: the video is split into beats, one per spoken phrase, each with a big word and an effect picked by the engine. Click a beat to change its big word, accent colour, behind-the-head, the effect and the effect's text, list, number or photos. **See all effects** opens the live gallery. The preview on the left shows the effects live over the video (person cut out, so "behind you" effects really go behind you).
+3. **Ask Claude**: write what to change ("a collage of my photos at 0:07", "less text after 0:15"). Claude Code edits the reel's `beats.json` (model `claude-opus-5-5`, file tools only, $1 cap per message) and the beats update by themselves.
+4. **Preview frames** runs the engine's overlap check and `preview.py` (one frame per beat, with video effects and glass blur). **Render video** runs `build.py`; it stops if text overlaps (you can render anyway), and the result is under **Final video** and **Download**.
+
+Where things live: the engine project (video, transcript, masks, `beats.json`, `overlay.html`, `out.mp4`) in `~/reels-montage-pro/projects/<reel>/`; the client, status, chat and job logs in `.private/data/reels/`. The plan is `beats.json`; before a preview or render the panel copies it into the project's `overlay.html` as a marked `STUDIIO BEATS` block (from `lib/reels-bridge.js`), so the engine itself is unchanged. Reels Montage PRO is a paid, personal-use package: nothing from it is copied into this (public) repository.
+
+You can also work on a reel in Claude Code directly: `cd ~/reels-montage-pro`, start `claude`, and ask it to edit `projects/<reel>/beats.json`. The panel picks the changes up.
 
 ---
 
@@ -93,6 +107,10 @@ admin/
   lib/publish.php    pending changes, diff, publish (git), discard
   lib/claude.php     Ask Claude: local `claude -p` runner, GitHub Actions runner
   lib/leads.php      lead storage (used by contact.php too)
+  lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)
+  lib/reels-bridge.js  turns beats.json into effects inside the engine's overlay.html
+  reels-file.php     serves the engine's overlay, bank and reel files to the editor (key in the URL)
+  tools/reels_auto.py  reads the engine's automatic plan for a new reel
   tools/setup.php    create/update the private config
   tools/check-content.php  validate content/*.json
   dev/router.php     local dev server router

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/claude.php';
 require_once __DIR__ . '/lib/leads.php';
+require_once __DIR__ . '/lib/reels.php';
 
 security_headers();
 
@@ -144,6 +145,38 @@ switch ("$method $action") {
 
     case 'POST task-discard':
         respond(['task' => task_discard($str('id'))]);
+
+    /* ---- reel editor (this Mac only, see lib/reels.php) ---- */
+
+    case 'GET reels':
+        respond(['reels' => reels_list(), 'clients' => reel_clients(), 'statuses' => REEL_STATUSES]);
+
+    case 'POST reel-upload':
+        respond(['size' => reel_upload_chunk((string) ($_GET['id'] ?? ''), (int) ($_GET['offset'] ?? -1))]);
+
+    case 'POST reel-create':
+        respond(['reel' => reel_create($in)]);
+
+    case 'GET reel':
+        respond(reel_payload($str('slug')));
+
+    case 'GET reel-status':
+        respond(reel_status($str('slug')));
+
+    case 'POST reel-meta':
+        respond(['reel' => reel_meta_update($str('slug'), array_intersect_key($in, array_flip(['title', 'status', 'client'])))]);
+
+    case 'POST reel-beats':
+        respond(reel_beats_save($str('slug'), $in['doc'] ?? null, ($in['version'] ?? null) !== null ? $str('version') : null));
+
+    case 'POST reel-job':
+        respond(['job' => reel_job_start($str('slug'), $str('kind'), ['force' => !empty($in['force'])])]);
+
+    case 'POST reel-photo':
+        respond(reel_photo_upload($str('slug'), $_FILES['file'] ?? []));
+
+    case 'POST reel-chat':
+        respond(['chat' => reel_chat_send($str('slug'), $str('message'))]);
 }
 
 throw new ApiError('Unknown action.', 404);
@@ -161,5 +194,6 @@ function session_payload(string $user): array
         'claude'  => claude_runner(),
         'model'   => (string) ($cfg['claude']['model'] ?? ''),
         'files'   => CONTENT_FILES,
+        'reels'   => reels_enabled(),
     ];
 }

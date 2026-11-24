@@ -23,6 +23,7 @@ Rules:
 - Images: only reference files that exist in `img/` (photos, ~1200×1500, 4:5) or `img/clients/` (logos, transparent PNG, ≤480 px wide).
 - Keep JSON valid, 2-space indent, UTF-8 (Arabic unescaped). After editing, run `php admin/tools/check-content.php` (same rules the admin applies on save). PHP is at `~/.local/bin/php` on this Mac.
 - Voice: "we", agency (not founder-led). Studios: Beirut, Dubai and California — always all three.
+- Hostinger tells browsers to cache `main.js` and `styles.css` for a week. Whenever you change either file, bump the `?v=` date in `index.html` (`styles.css?v=YYYYMMDD`, `main.js?v=YYYYMMDD`), or returning visitors keep running the old file against the new page. Content JSON is not affected (served with `no-cache`).
 
 ## The admin panel (`admin/`)
 

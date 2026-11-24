@@ -57,4 +57,6 @@ To add a client: Admin → Client logos → Add logo (or drop a transparent PNG 
 
 ## Deploy
 
+Hostinger caches `main.js` and `styles.css` in browsers for a week: when you change either, bump the `?v=` date on its link in `index.html`.
+
 Static site — on Vercel, import the repo with framework preset **Other**, no build command, output directory = root.

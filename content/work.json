@@ -1,0 +1,154 @@
+[
+  {
+    "img": "jewelry.jpg",
+    "title": {
+      "en": "Jewelry campaign",
+      "ar": "حملة مجوهرات"
+    },
+    "sub": {
+      "en": "Art direction & still life",
+      "ar": "إدارة فنية وتصوير منتجات"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "jewelry"
+  },
+  {
+    "img": "steak.jpg",
+    "title": {
+      "en": "Table du Chef Jean",
+      "ar": "Table du Chef Jean"
+    },
+    "sub": {
+      "en": "Restaurant campaign",
+      "ar": "حملة مطعم"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "fnb"
+  },
+  {
+    "img": "tournament.jpg",
+    "title": {
+      "en": "Rucker Park Tournament",
+      "ar": "Rucker Park Tournament"
+    },
+    "sub": {
+      "en": "Tournament coverage",
+      "ar": "تغطية بطولة"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "sport"
+  },
+  {
+    "img": "cocktail.jpg",
+    "title": {
+      "en": "MONS",
+      "ar": "MONS"
+    },
+    "sub": {
+      "en": "Cocktail menu",
+      "ar": "قائمة الكوكتيلات"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "fnb"
+  },
+  {
+    "img": "recovery.jpg",
+    "title": {
+      "en": "Recovery studio",
+      "ar": "استوديو التعافي"
+    },
+    "sub": {
+      "en": "Wellness campaign",
+      "ar": "حملة عافية"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "wellness"
+  },
+  {
+    "img": "burgers.jpg",
+    "title": {
+      "en": "Grandpas",
+      "ar": "Grandpas"
+    },
+    "sub": {
+      "en": "Social content",
+      "ar": "محتوى لمنصات التواصل"
+    },
+    "cats": [
+      "production",
+      "digital"
+    ],
+    "sector": "fnb"
+  },
+  {
+    "img": "ai-drinks.jpg",
+    "title": {
+      "en": "AI product visuals",
+      "ar": "صور منتجات بالذكاء الاصطناعي"
+    },
+    "sub": {
+      "en": "Made with studiio.ai",
+      "ar": "من إنتاج studiio.ai"
+    },
+    "cats": [
+      "digital",
+      "production"
+    ],
+    "sector": "ai"
+  },
+  {
+    "img": "salad.jpg",
+    "title": {
+      "en": "ILE",
+      "ar": "ILE"
+    },
+    "sub": {
+      "en": "Menu & lifestyle",
+      "ar": "قائمة الطعام وأسلوب الحياة"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "fnb"
+  },
+  {
+    "img": "drape.jpg",
+    "title": {
+      "en": "Basketball editorial",
+      "ar": "جلسة تصوير كرة السلة"
+    },
+    "sub": {
+      "en": "Sport fashion",
+      "ar": "أزياء رياضية"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "fashion"
+  },
+  {
+    "img": "fitness.jpg",
+    "title": {
+      "en": "Activewear campaign",
+      "ar": "حملة ملابس رياضية"
+    },
+    "sub": {
+      "en": "Sport & wellness",
+      "ar": "رياضة وعافية"
+    },
+    "cats": [
+      "production"
+    ],
+    "sector": "wellness"
+  }
+]

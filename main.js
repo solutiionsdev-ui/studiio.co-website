@@ -9,265 +9,51 @@
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   /* ------------------------------------------------------------------
-     Copy — every string the page shows, in English and Arabic
+     Content — loaded from content/*.json (edited in /admin or by Claude Code)
+     copy.json      every string the page shows, in English and Arabic
+     services.json  the 5 disciplines        work.json     selected-work grid
+     reel.json      hero film strip + reel   clients.json  client logo strip
+     articles.json  Thinking section         taxonomy.json sector + category labels
      ------------------------------------------------------------------ */
-  const T = {
-    en: {
-      'skip': 'Skip to content',
-      'nav.work': 'Work', 'nav.services': 'Services', 'nav.about': 'About', 'nav.thinking': 'Thinking',
-      'nav.cta': 'Start a project', 'nav.menu': 'Menu', 'nav.close': 'Close',
-      'header.note': 'Integrated agency — Beirut · Dubai · California',
-      'hero.lede': 'We build brands people talk about, and the systems that keep them growing.',
-      'hero.location': 'Beirut · Dubai · California',
-      'hero.reel': 'Play reel',
-      'hero.drag': 'Drag',
-      'about.label': '(00) Who we are',
-      'about.title': 'Two <em>i’s</em>.<br>One vision.',
-      'about.intro': 'STUDIIO is an integrated creative and communications agency connecting the Middle East and the US, with studios in Beirut, Dubai and California. The two i’s in our name stand for what we deliver on every brief: Ideas and Impact.',
-      'about.ideasLabel': 'The first <span class="lc">i</span>',
-      'about.ideas': 'Ideas',
-      'about.ideasBody': 'Ideas are where brands get noticed: the stories, strategies, visuals and experiences that make people stop and pay attention.',
-      'about.impactLabel': 'The second <span class="lc">i</span>',
-      'about.impact': 'Impact',
-      'about.impactBody': 'Impact is where brands win: the reputation, reach and measurable growth that turn attention into results.',
-      'about.both': 'Most agencies are built for one or the other. STUDIIO was built for <em>both</em>.',
-      'about.markets': 'We work in Arabic and English, across markets from the Gulf and the Levant to the US.',
-      'about.cta': 'Work with us',
-      'services.label': '(01) What we do',
-      'services.title': 'Five connected<br>disciplines.',
-      'services.aside': 'One team handles strategy, story, media and production, so our clients get one partner, one plan and one consistent voice.',
-      'work.label': '(02) Selected work',
-      'work.title': 'Work that gets noticed.',
-      'work.all': 'View all work',
-      'work.empty': 'Case studies for this discipline are being prepared. Ask us for the full credentials deck.',
-      'work.emptyCta': 'Request the deck',
-      'filter.all': 'All',
-      'cat.pr': 'PR & Communications', 'cat.production': 'Branding & Production', 'cat.digital': 'Digital & Growth',
-      'cat.web': 'Websites', 'cat.events': 'Events',
-      'proof.label': '(03) In numbers',
-      'num.years': 'Years active', 'num.projects': 'Projects completed', 'num.brands': 'Brands served', 'num.cities': 'Studios — Beirut, Dubai & California',
-      'clients.label': 'Brands we’ve worked with',
-      'ai.label': '(04) Powered by AI',
-      'ai.body': 'studiio.ai is our in-house AI content studio. Campaign visuals, product imagery and short-form video, produced at the speed social media demands and art-directed by the same team.',
-      'ai.cta': 'See the AI portfolio on studiio.ai',
-      'thinking.label': '(05) Thinking',
-      'thinking.title': 'Notes from the studio.',
-      'thinking.all': 'All articles',
-      'read': 'min read',
-      'contact.label': '(06) Start a project',
-      'contact.title': 'Let’s make <em>noise.</em>',
-      'contact.body': 'Tell us what you’re building, launching or fixing. We’ll come back with a plan.',
-      'contact.email': 'Email', 'contact.phone': 'Phone', 'contact.offices': 'Offices', 'contact.social': 'Instagram',
-      'form.name': 'Name', 'form.company': 'Company', 'form.email': 'Email', 'form.service': 'What do you need?',
-      'form.choose': 'Choose a service', 'form.all': 'Not sure yet — all of it',
-      'form.message': 'Tell us about the project', 'form.send': 'Send message',
-      'form.note': 'Or email us directly at info@studiio.co',
-      'form.sending': 'Sending…',
-      'form.sent': 'Thank you — we’ve received your message and will be in touch soon.',
-      'form.invalid': 'Please add your name and a valid email address.',
-      'form.rate': 'You’ve sent several messages already. Please email us at info@studiio.co.',
-      'form.fallback': 'We couldn’t send it from the site, so your email app has opened with your message. Just press send.',
-      'form.failed': 'Something went wrong. Please email us at info@studiio.co.',
-      'footer.rights': '© 2026 STUDIIO.CO. All rights reserved.',
-      'footer.top': 'Back to top',
-      'reel.close': 'Close',
-      'lang.switch': 'عربي'
-    },
-    ar: {
-      'skip': 'انتقل إلى المحتوى',
-      'nav.work': 'أعمالنا', 'nav.services': 'خدماتنا', 'nav.about': 'من نحن', 'nav.thinking': 'أفكار',
-      'nav.cta': 'ابدأ مشروعك', 'nav.menu': 'القائمة', 'nav.close': 'إغلاق',
-      'header.note': 'وكالة متكاملة — بيروت · دبي · كاليفورنيا',
-      'hero.lede': 'نبني علامات تجارية يتحدث عنها الناس، والأنظمة التي تُبقيها في نموّ مستمر.',
-      'hero.location': 'بيروت · دبي · كاليفورنيا',
-      'hero.reel': 'شاهد أعمالنا',
-      'hero.drag': 'اسحب',
-      'about.label': '(00) من نحن',
-      'about.title': 'الفكرة <em>والأثر</em>.<br>رؤية واحدة.',
-      'about.intro': 'STUDIIO وكالة متكاملة للإبداع والاتصال تربط الشرق الأوسط بالولايات المتحدة، ولدينا استوديوهات في بيروت ودبي وكاليفورنيا. حرفا الـ i في اسمنا يرمزان إلى ما نقدّمه في كل مشروع: الأفكار (Ideas) والأثر (Impact).',
-      'about.ideasLabel': 'الـ <span class="lc">i</span> الأولى',
-      'about.ideas': 'الأفكار',
-      'about.ideasBody': 'الأفكار هي حيث تلفت العلامات الأنظار: القصص والاستراتيجيات والصور والتجارب التي تجعل الناس يتوقفون وينتبهون.',
-      'about.impactLabel': 'الـ <span class="lc">i</span> الثانية',
-      'about.impact': 'الأثر',
-      'about.impactBody': 'الأثر هو حيث تنتصر العلامات: السمعة والانتشار والنمو القابل للقياس الذي يحوّل الانتباه إلى نتائج.',
-      'about.both': 'معظم الوكالات بُنيت لأحدهما فقط. أما STUDIIO فبُنيت <em>لكليهما</em>.',
-      'about.markets': 'نعمل بالعربية والإنجليزية، في أسواق تمتد من الخليج وبلاد الشام إلى الولايات المتحدة.',
-      'about.cta': 'اعمل معنا',
-      'services.label': '(01) ما نقدّمه',
-      'services.title': 'خمسة تخصصات<br>مترابطة.',
-      'services.aside': 'فريق واحد يتولى الاستراتيجية والقصة والإعلام والإنتاج، ليحصل عملاؤنا على شريك واحد وخطة واحدة وصوت واحد متناسق.',
-      'work.label': '(02) مختارات من أعمالنا',
-      'work.title': 'أعمال تلفت الأنظار.',
-      'work.all': 'كل الأعمال',
-      'work.empty': 'دراسات الحالة لهذا التخصص قيد الإعداد. اطلب منا الملف التعريفي الكامل.',
-      'work.emptyCta': 'اطلب الملف التعريفي',
-      'filter.all': 'الكل',
-      'cat.pr': 'العلاقات العامة والاتصال', 'cat.production': 'الهوية والإنتاج', 'cat.digital': 'التسويق الرقمي والنمو',
-      'cat.web': 'المواقع الإلكترونية', 'cat.events': 'الفعاليات',
-      'proof.label': '(03) بالأرقام',
-      'num.years': 'سنوات من العمل', 'num.projects': 'مشروع منجز', 'num.brands': 'علامة تجارية', 'num.cities': 'استوديوهات — بيروت ودبي وكاليفورنيا',
-      'clients.label': 'علامات عملنا معها',
-      'ai.label': '(04) مدعوم بالذكاء الاصطناعي',
-      'ai.body': 'studiio.ai هو استوديو المحتوى بالذكاء الاصطناعي التابع لنا. صور الحملات والمنتجات والفيديوهات القصيرة، تُنتَج بالسرعة التي تتطلبها منصات التواصل وبإشراف فني من الفريق نفسه.',
-      'ai.cta': 'شاهد أعمال الذكاء الاصطناعي على studiio.ai',
-      'thinking.label': '(05) أفكار',
-      'thinking.title': 'ملاحظات من الاستوديو.',
-      'thinking.all': 'كل المقالات',
-      'read': 'دقائق قراءة',
-      'contact.label': '(06) ابدأ مشروعك',
-      'contact.title': 'لنصنع <em>الحدث.</em>',
-      'contact.body': 'أخبرنا بما تبنيه أو تطلقه أو تريد تطويره، وسنعود إليك بخطة.',
-      'contact.email': 'البريد الإلكتروني', 'contact.phone': 'الهاتف', 'contact.offices': 'مكاتبنا', 'contact.social': 'إنستغرام',
-      'form.name': 'الاسم', 'form.company': 'الشركة', 'form.email': 'البريد الإلكتروني', 'form.service': 'ما الذي تحتاجه؟',
-      'form.choose': 'اختر خدمة', 'form.all': 'لست متأكداً بعد، كل ما سبق',
-      'form.message': 'أخبرنا عن المشروع', 'form.send': 'أرسل الرسالة',
-      'form.note': 'أو راسلنا مباشرة على info@studiio.co',
-      'form.sending': 'جارٍ الإرسال…',
-      'form.sent': 'شكراً لك، وصلتنا رسالتك وسنتواصل معك قريباً.',
-      'form.invalid': 'يرجى إدخال اسمك وبريد إلكتروني صحيح.',
-      'form.rate': 'لقد أرسلت عدة رسائل بالفعل. يرجى مراسلتنا على info@studiio.co.',
-      'form.fallback': 'تعذّر الإرسال من الموقع، لذلك فتحنا تطبيق البريد برسالتك. اضغط إرسال فقط.',
-      'form.failed': 'حدث خطأ ما. يرجى مراسلتنا على info@studiio.co.',
-      'footer.rights': '© 2026 STUDIIO.CO. جميع الحقوق محفوظة.',
-      'footer.top': 'العودة للأعلى',
-      'reel.close': 'إغلاق',
-      'lang.switch': 'English'
-    }
-  };
+  let T = { en: {}, ar: {} };
+  let SERVICES = [];
+  let SECTOR = {};
+  let CAT_SHORT = {};
+  let WORK = [];
+  let STRIP = [];
+  let LOGO_VERSION = 1;
+  let CLIENT_LOGOS = [];
+  let ARTICLES = [];
 
-  /* ------------------------------------------------------------------
-     Content data
-     ------------------------------------------------------------------ */
-  const SERVICES = [
-    {
-      id: 'digital', img: 'burger-cap.jpg',
-      title: { en: 'Digital Marketing & Growth', ar: 'التسويق الرقمي والنمو' },
-      lead: { en: 'Attention is good. Growth is better. We turn campaigns into results you can measure.', ar: 'الانتباه جيد، والنمو أفضل. نحوّل الحملات إلى نتائج يمكن قياسها.' },
-      tags: {
-        en: ['Digital strategy', 'Paid advertising', 'SEO', 'Performance marketing', 'Lead generation', 'Campaign optimization', 'Marketing automation', 'CRM solutions', 'AI-powered marketing'],
-        ar: ['الاستراتيجية الرقمية', 'الإعلانات المدفوعة', 'تحسين محركات البحث', 'التسويق القائم على الأداء', 'توليد العملاء المحتملين', 'تحسين الحملات', 'أتمتة التسويق', 'حلول إدارة علاقات العملاء', 'التسويق بالذكاء الاصطناعي']
-      }
-    },
-    {
-      id: 'production', img: 'jewelry.jpg',
-      title: { en: 'Branding & Creative Production', ar: 'الهوية والإنتاج الإبداعي' },
-      lead: { en: 'Identities and content with a point of view — produced in-house, from concept to final frame.', ar: 'هويات ومحتوى بوجهة نظر واضحة، نُنتجها داخلياً من الفكرة حتى اللقطة الأخيرة.' },
-      tags: {
-        en: ['Brand strategy & positioning', 'Visual identity', 'Creative direction', 'Storytelling', 'Campaign development', 'Graphic design', 'Photography', 'Videography', 'Podcasts', 'Branded content'],
-        ar: ['استراتيجية العلامة وتموضعها', 'الهوية البصرية', 'الإدارة الإبداعية', 'سرد القصص', 'تطوير الحملات', 'التصميم الجرافيكي', 'التصوير الفوتوغرافي', 'التصوير المرئي', 'البودكاست', 'المحتوى الترويجي للعلامة']
-      }
-    },
-    {
-      id: 'pr', img: 'chef.jpg',
-      title: { en: 'Public Relations & Strategic Communications', ar: 'العلاقات العامة والاتصال الاستراتيجي' },
-      lead: { en: 'We shape the story before it’s told — and make sure the right people tell it.', ar: 'نصوغ القصة قبل أن تُروى، ونضمن أن يرويها الأشخاص المناسبون.' },
-      tags: {
-        en: ['Media relations', 'Corporate communications', 'Reputation management', 'Executive profiling', 'Thought leadership', 'Press releases', 'Media planning & buying', 'Sponsorships', 'Strategic media partnerships'],
-        ar: ['العلاقات الإعلامية', 'الاتصال المؤسسي', 'إدارة السمعة', 'بناء الحضور التنفيذي', 'القيادة الفكرية', 'البيانات الصحفية', 'تخطيط وشراء الوسائط الإعلامية', 'الرعايات', 'الشراكات الإعلامية الاستراتيجية']
-      }
-    },
-    {
-      id: 'web', img: 'cocktail.jpg', mock: 'browser',
-      title: { en: 'Website Design & Development', ar: 'تصميم وتطوير المواقع الإلكترونية' },
-      lead: { en: 'Fast, bilingual and built to convert — websites that work as hard as your team.', ar: 'مواقع سريعة وثنائية اللغة ومصمَّمة لتحويل الزوار إلى عملاء، تعمل بجدّ مثل فريقك.' },
-      tags: {
-        en: ['Corporate websites', 'E-commerce platforms', 'Landing pages', 'UX/UI design', 'Website redesign', 'Technical SEO', 'System integrations', 'Maintenance & hosting'],
-        ar: ['المواقع المؤسسية', 'منصات التجارة الإلكترونية', 'صفحات الهبوط', 'تصميم تجربة وواجهة المستخدم', 'إعادة تصميم المواقع', 'تحسين محركات البحث التقني', 'تكامل الأنظمة', 'الصيانة والاستضافة']
-      }
-    },
-    {
-      id: 'events', img: 'tournament.jpg',
-      title: { en: 'Events & Experiential Marketing', ar: 'الفعاليات وتسويق التجارب' },
-      lead: { en: 'Moments people show up for, film and remember.', ar: 'لحظات يحضرها الناس، ويصوّرونها، ويتذكرونها.' },
-      tags: {
-        en: ['Corporate events', 'Product launches', 'Brand activations', 'Experiential campaigns', 'VIP experiences', 'Press events', 'Event planning & production'],
-        ar: ['الفعاليات المؤسسية', 'إطلاق المنتجات', 'تفعيل العلامات التجارية', 'الحملات التفاعلية', 'تجارب كبار الشخصيات', 'الفعاليات الصحفية', 'تخطيط الفعاليات وإنتاجها']
-      }
-    }
-  ];
-
-  const SECTOR = {
-    fnb: { en: 'F&B', ar: 'مطاعم ومشروبات' },
-    sport: { en: 'Sport', ar: 'رياضة' },
-    wellness: { en: 'Wellness', ar: 'عافية' },
-    fashion: { en: 'Fashion', ar: 'أزياء' },
-    jewelry: { en: 'Jewelry', ar: 'مجوهرات' },
-    ai: { en: 'AI', ar: 'ذكاء اصطناعي' }
-  };
-  const CAT_SHORT = {
-    pr: { en: 'PR', ar: 'علاقات عامة' },
-    production: { en: 'Production', ar: 'إنتاج' },
-    digital: { en: 'Digital', ar: 'رقمي' },
-    web: { en: 'Web', ar: 'مواقع' },
-    events: { en: 'Events', ar: 'فعاليات' }
-  };
-
-  // Real projects from the current studiio.co portfolio. Titles marked generic where the client is not named on the site.
-  const WORK = [
-    { img: 'jewelry.jpg', title: { en: 'Jewelry campaign', ar: 'حملة مجوهرات' }, sub: { en: 'Art direction & still life', ar: 'إدارة فنية وتصوير منتجات' }, cats: ['production'], sector: 'jewelry' },
-    { img: 'steak.jpg', title: { en: 'Table du Chef Jean', ar: 'Table du Chef Jean' }, sub: { en: 'Restaurant campaign', ar: 'حملة مطعم' }, cats: ['production'], sector: 'fnb' },
-    { img: 'tournament.jpg', title: { en: 'Rucker Park Tournament', ar: 'Rucker Park Tournament' }, sub: { en: 'Tournament coverage', ar: 'تغطية بطولة' }, cats: ['production'], sector: 'sport' },
-    { img: 'cocktail.jpg', title: { en: 'MONS', ar: 'MONS' }, sub: { en: 'Cocktail menu', ar: 'قائمة الكوكتيلات' }, cats: ['production'], sector: 'fnb' },
-    { img: 'recovery.jpg', title: { en: 'Recovery studio', ar: 'استوديو التعافي' }, sub: { en: 'Wellness campaign', ar: 'حملة عافية' }, cats: ['production'], sector: 'wellness' },
-    { img: 'burgers.jpg', title: { en: 'Grandpas', ar: 'Grandpas' }, sub: { en: 'Social content', ar: 'محتوى لمنصات التواصل' }, cats: ['production', 'digital'], sector: 'fnb' },
-    { img: 'ai-drinks.jpg', title: { en: 'AI product visuals', ar: 'صور منتجات بالذكاء الاصطناعي' }, sub: { en: 'Made with studiio.ai', ar: 'من إنتاج studiio.ai' }, cats: ['digital', 'production'], sector: 'ai' },
-    { img: 'salad.jpg', title: { en: 'ILE', ar: 'ILE' }, sub: { en: 'Menu & lifestyle', ar: 'قائمة الطعام وأسلوب الحياة' }, cats: ['production'], sector: 'fnb' },
-    { img: 'drape.jpg', title: { en: 'Basketball editorial', ar: 'جلسة تصوير كرة السلة' }, sub: { en: 'Sport fashion', ar: 'أزياء رياضية' }, cats: ['production'], sector: 'fashion' },
-    { img: 'fitness.jpg', title: { en: 'Activewear campaign', ar: 'حملة ملابس رياضية' }, sub: { en: 'Sport & wellness', ar: 'رياضة وعافية' }, cats: ['production'], sector: 'wellness' }
-  ];
-
-  const STRIP = [
-    { img: 'jewelry.jpg', cap: { en: 'Jewelry campaign', ar: 'حملة مجوهرات' } },
-    { img: 'tournament.jpg', cap: { en: 'Rucker Park Tournament', ar: 'Rucker Park Tournament' } },
-    { img: 'cocktail.jpg', cap: { en: 'MONS', ar: 'MONS' } },
-    { img: 'fitness.jpg', cap: { en: 'Activewear campaign', ar: 'حملة ملابس رياضية' } },
-    { img: 'chef.jpg', cap: { en: 'Table du Chef Jean', ar: 'Table du Chef Jean' } },
-    { img: 'court-aerial.jpg', cap: { en: 'Rucker Park', ar: 'Rucker Park' } },
-    { img: 'burger-cap.jpg', cap: { en: 'Grandpas', ar: 'Grandpas' } },
-    { img: 'recovery.jpg', cap: { en: 'Wellness campaign', ar: 'حملة عافية' } },
-    { img: 'dunk.jpg', cap: { en: 'Basketball editorial', ar: 'جلسة تصوير كرة السلة' } },
-    { img: 'steak.jpg', cap: { en: 'Table du Chef Jean', ar: 'Table du Chef Jean' } },
-    { img: 'cycling.jpg', cap: { en: 'Activewear campaign', ar: 'حملة ملابس رياضية' } },
-    { img: 'ai-latte.jpg', cap: { en: 'studiio.ai', ar: 'studiio.ai' } },
-    { img: 'dessert.jpg', cap: { en: 'ILE', ar: 'ILE' } },
-    { img: 'reflekt.jpg', cap: { en: 'Reflekt', ar: 'Reflekt' } }
-  ];
-
-  // Bump when logo files change so browsers fetch the new ones.
-  const LOGO_VERSION = 2;
-  // Client logos (img/clients/) in their brand colours. Split into two sliding rows in this order.
-  const CLIENT_LOGOS = [
-    { name: 'Capelli Sport', file: 'capelli.png', w: 480, h: 174 },
-    { name: 'Birdy Fam', file: 'birdy-fam.png', w: 408, h: 480, s: 1.15 },
-    { name: 'Qube', file: 'qube.png', w: 480, h: 180 },
-    { name: 'Karen Wazen Beach Club', file: 'karen-wazen.png', w: 220, h: 192, s: 1.25 },
-    { name: 'BYD', file: 'byd.png', w: 248, h: 58 },
-    { name: 'The Protein Bar', file: 'protein-bar.png', w: 480, h: 306 },
-    { name: 'Reflekt', file: 'reflekt.png', w: 480, h: 246 },
-    { name: 'Mōns', file: 'mons.png', w: 480, h: 132 },
-    { name: 'Beirut Beer', file: 'beirut-beer.png', w: 246, h: 102 },
-    { name: 'Luma', file: 'luma.png', w: 480, h: 140 },
-    { name: 'The Lab', file: 'the-lab.png', w: 480, h: 330 },
-    { name: 'Josée Efrem', file: 'josee-efrem.png', w: 480, h: 88 },
-    { name: 'Caliber', file: 'caliber.png', w: 480, h: 95 },
-    { name: 'Île Beach Bar', file: 'ile.png', w: 138, h: 108 },
-    { name: 'Mikkai', file: 'mikkai.png', w: 480, h: 200 },
-    { name: 'Step Ahead', file: 'step-ahead.png', w: 480, h: 107 },
-    { name: 'Wimsi', file: 'wimsi.png', w: 480, h: 167 },
-    { name: 'Pilatté Wellness', file: 'pilatte.png', w: 184, h: 84 },
-    { name: 'Fine B', file: 'fine-b.png', w: 480, h: 302 },
-    { name: 'Quwati', file: 'quwati.png', w: 480, h: 136 },
-    { name: 'us Coffee', file: 'us-coffee.png', w: 210, h: 108 },
-    { name: 'Stepahead Sports School', file: 'sss.png', w: 480, h: 438 },
-    { name: 'UNCVRD', file: 'uncvrd.png', w: 480, h: 84 }
-  ];
-
-  const ARTICLES = [
-    { img: 'portrait.jpg', cat: 'pr', mins: 5, title: { en: 'Why your launch needs a press strategy before a media budget', ar: 'لماذا يحتاج إطلاقك إلى استراتيجية إعلامية قبل ميزانية الإعلانات' } },
-    { img: 'drape.jpg', cat: 'production', mins: 7, title: { en: 'Bilingual by design: building brands that speak Arabic and English', ar: 'ثنائية اللغة منذ البداية: بناء علامات تتحدث العربية والإنجليزية' } },
-    { img: 'players.jpg', cat: 'events', mins: 4, title: { en: 'The event is the content: planning activations for the feed', ar: 'الفعالية هي المحتوى: كيف نخطط التفعيلات لمنصات التواصل' } }
-  ];
+  const CONTENT_FILES = ['copy', 'services', 'taxonomy', 'work', 'reel', 'clients', 'articles'];
+  // Each file loads on its own, so one broken file only empties its own section.
+  async function loadContent() {
+    const results = await Promise.allSettled(CONTENT_FILES.map((name) =>
+      fetch(`content/${name}.json`).then((res) => {
+        if (!res.ok) throw new Error(`${name}.json: HTTP ${res.status}`);
+        return res.json();
+      })
+    ));
+    const get = (name, fallback) => {
+      const r = results[CONTENT_FILES.indexOf(name)];
+      if (r.status === 'fulfilled' && r.value) return r.value;
+      if (r.status === 'rejected') console.error('[studiio] content not loaded:', r.reason);
+      return fallback;
+    };
+    const copy = get('copy', {});
+    T = { en: copy.en || {}, ar: copy.ar || {} };
+    SERVICES = asList(get('services', []));
+    const tax = get('taxonomy', {});
+    SECTOR = tax.sectors || {};
+    CAT_SHORT = tax.categories || {};
+    WORK = asList(get('work', [])).map((w) => ({ ...w, cats: asList(w.cats) }));
+    STRIP = asList(get('reel', []));
+    const clients = get('clients', {});
+    LOGO_VERSION = clients.version || 1;
+    CLIENT_LOGOS = asList(clients.logos);
+    ARTICLES = asList(get('articles', []));
+  }
+  const asList = (v) => (Array.isArray(v) ? v : []);
 
   /* ------------------------------------------------------------------
      State
@@ -275,6 +61,8 @@
   let lang = 'en';
   let filter = 'all';
   const t = (k) => (T[lang] && T[lang][k]) ?? T.en[k] ?? k;
+  // True when copy.json has this key; otherwise the page keeps the text written in index.html.
+  const has = (k) => (T[lang] && T[lang][k] != null) || T.en[k] != null;
   const L = (o) => (o && (o[lang] ?? o.en)) ?? '';
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -292,10 +80,10 @@
     const html = document.documentElement;
     html.lang = lang;
     html.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    $$('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
-    $$('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+    $$('[data-i18n]').forEach((el) => { if (has(el.dataset.i18n)) el.textContent = t(el.dataset.i18n); });
+    $$('[data-i18n-html]').forEach((el) => { if (has(el.dataset.i18nHtml)) el.innerHTML = t(el.dataset.i18nHtml); });
     $$('[data-lang-toggle]').forEach((btn) => {
-      btn.textContent = t('lang.switch');
+      btn.textContent = has('lang.switch') ? t('lang.switch') : (lang === 'ar' ? 'English' : 'عربي');
       btn.lang = lang === 'ar' ? 'en' : 'ar';
       btn.setAttribute('aria-label', lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية');
     });
@@ -761,5 +549,8 @@
      Boot
      ------------------------------------------------------------------ */
   $$('[data-logo]').forEach((el) => el.insertAdjacentHTML('beforeend', logoSVG()));
-  renderAll();
+  // Set direction before the content arrives so an Arabic page doesn't flip after loading.
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  loadContent().then(renderAll);
 })();

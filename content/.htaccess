@@ -1,0 +1,6 @@
+# Content files change when the admin or Claude Code publishes: always check for a newer copy.
+<IfModule mod_headers.c>
+  <FilesMatch "\.json$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

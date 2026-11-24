@@ -64,6 +64,19 @@ jobs:
             Task from the site owner:
             ${{ inputs.prompt }}
 
+      - name: Show Claude's error
+        if: failure()
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          FILE="${EXECUTION_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
+          if [ -f "$FILE" ]; then
+            echo "Claude's last message:"
+            jq -r '[.[]? | select(.type? == "result") | .result][-1] // "(no message)"' "$FILE" || true
+          else
+            echo "No Claude output file found."
+          fi
+
       - name: Open pull request
         env:
           GH_TOKEN: ${{ github.token }}

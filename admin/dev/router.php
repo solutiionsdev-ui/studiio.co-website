@@ -19,7 +19,7 @@ $path = '/' . implode('/', array_filter(explode('/', str_replace('\\', '/', $pat
 
 if (str_contains($path, '..')
     || preg_match('#^/(\.private|\.git|\.github|\.claude|\.data)(/|$)#', $path)
-    || preg_match('#^/admin/(lib|dev|tools)(/|$)#', $path)
+    || preg_match('#^/admin/(lib|dev|tools|crm)(/|$)#', $path)
     || preg_match('#^/admin/config[^/]*\.php$#', $path)
     || preg_match('#/\.ht#', $path)) {
     http_response_code(404);

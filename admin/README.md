@@ -11,7 +11,8 @@ What it manages today:
 | Hero reel | `content/reel.json`: the film strip and full-screen reel |
 | Copy (EN / AR) | `content/copy.json`: every string on the page, side by side |
 | Client logos | `content/clients.json`: upload, reorder, rename, scale |
-| Leads | Enquiries from the contact form: status, private notes, reply, CSV export. Stored privately, never in Git. |
+| Pipeline | The client system: every client and project through the 11 onboarding stages, with stage checks, checklist, payments, shoots, messages and an activity log. Stored privately, never in Git. |
+| Leads | Enquiries from the contact form: status, private notes, reply, CSV export, **Add to pipeline**. Stored privately, never in Git. |
 | Reels | (this Mac only) Client reels edited with Reels Montage PRO: beats, an effect per beat, live preview, chat with Claude, preview frames, render |
 | Ask Claude | Send a task to Claude Code; review its changes; publish or discard |
 | Publish | (this Mac) commit + push the changes you pick → Hostinger deploys `main` |
@@ -48,6 +49,19 @@ claude auth login
 
 (Or put an Anthropic API key in `claude.api_key` in `.private/config.php`.)
 
+### Pipeline (client system)
+
+The **Pipeline** page follows every studiio.co client from the first message to the follow-up, through the stages of the onboarding spec: Lead → Intake → Proposal → Agreement → Onboarding → Kickoff → In production → Review → Delivered → Offboarding → Follow-up. It works on this Mac and online.
+
+- **New client**: business, contact, phone, email, preferred channel, track (retainer, production or photography) and source. Or open a website enquiry in **Leads** and press **Add to pipeline**.
+- **Board**: one column per stage, one card per project, with the days in the stage, the next action (red when overdue) and a red edge when the project is waiting on the client. **List** shows the same as a table.
+- **Client page**: the stage line, and what the current stage needs before the project can move on, with a button to record each step (qualified, intake received, proposal accepted, agreement signed, kickoff done, first draft delivered, approval, testimonial requested, check-in). Also the next action, project details, payments, the asset and access checklist (created from the track when the project reaches Onboarding), shoot dates, messages, documents and the activity log.
+- **Rules**: a project moves on only when its stage is done. Moving on anyway, skipping stages, booking a shoot before Kickoff or closing early asks for a reason, and the override is logged with the date and who did it. Every stage change is logged.
+
+Where things live: the records (clients, projects, checklist, documents, payments, messages, activity) in the private data folder under `crm/` (`.private/data/crm/` on this Mac, `studiio-private/data/crm/` on Hostinger), never in Git. Settings and client-facing wording in `admin/crm/studiio.co/`: `settings.json` holds the payment terms, revision rounds, timings and the other open decisions from the spec (keys still in its `unconfirmed` list are the spec's starting values), and `templates/en/checklist.json` is the checklist the client gets. After editing either, run `php admin/tools/check-crm.php`. Another business (studiio.ai, solutiions.dev) gets its own folder next to `studiio.co`.
+
+Not built yet (spec phases 2 to 6): the intake questionnaire link, the proposal, agreement and welcome pack documents and the quotation generator, invoices and a payments view, drafted messages with one-click approval and n8n, the client portal, and monthly retainer cycles. For now each step is recorded by hand.
+
 ### Reels (this Mac only)
 
 The **Reels** page is an editor for client reels, built on Reels Montage PRO in `~/reels-montage-pro` (found automatically; set `reels.dir` in `.private/config.php` if it moves). It only appears on the Mac that has the package, never online: the engine needs Whisper, Apple Vision, ffmpeg and Chrome.
@@ -65,7 +79,7 @@ You can also work on a reel in Claude Code directly: `cd ~/reels-montage-pro`, s
 
 ## Put it online (studiio.co/admin)
 
-Online, the panel runs on Hostinger next to the site. Saves become commits to GitHub (Hostinger then deploys them, about a minute), leads are stored on the server, and Ask Claude runs in GitHub Actions and opens a pull request you merge from the panel.
+Online, the panel runs on Hostinger next to the site. Saves become commits to GitHub (Hostinger then deploys them, about a minute), leads and Pipeline records are stored on the server, and Ask Claude runs in GitHub Actions and opens a pull request you merge from the panel.
 
 1. **Create the private folder on Hostinger.** In hPanel → File Manager, next to `public_html` (i.e. `…/domains/studiio.co/`), create a folder `studiio-private`. It is outside the website, so it is never served.
 2. **Make a GitHub token.** https://github.com/settings/personal-access-tokens/new: a fine-grained token, repository access *only* `solutiionsdev-ui/studiio.co-website`, permissions **Contents**, **Pull requests**, **Actions** = Read and write.
@@ -107,12 +121,15 @@ admin/
   lib/publish.php    pending changes, diff, publish (git), discard
   lib/claude.php     Ask Claude: local `claude -p` runner, GitHub Actions runner
   lib/leads.php      lead storage (used by contact.php too)
+  lib/crm.php        Pipeline: clients, projects, stage checks, checklist, payments, messages, activity
+  crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)
   lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)
   lib/reels-bridge.js  turns beats.json into effects inside the engine's overlay.html
   reels-file.php     serves the engine's overlay, bank and reel files to the editor (key in the URL)
   tools/reels_auto.py  reads the engine's automatic plan for a new reel
   tools/setup.php    create/update the private config
   tools/check-content.php  validate content/*.json
+  tools/check-crm.php      validate the Pipeline settings and templates
   dev/router.php     local dev server router
 .github/workflows/ask-claude.yml   Ask Claude online (Claude Code in GitHub Actions → pull request)
 ```

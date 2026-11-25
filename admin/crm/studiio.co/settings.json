@@ -1,0 +1,91 @@
+{
+  "_help": "Settings for the studiio.co client system (admin → Pipeline). Change a value here and the admin uses it straight away. Keys listed under \"unconfirmed\" are starting values from the onboarding spec that Mario has not confirmed yet; take a key out of that list once it is confirmed. Keep it valid JSON (double quotes, no trailing commas) and check it with: php admin/tools/check-crm.php",
+  "business": {
+    "key": "studiio.co",
+    "name": "STUDIIO.CO",
+    "currency": "USD",
+    "timezone": "Asia/Beirut"
+  },
+  "tracks": {
+    "retainer": {
+      "label": "Retainer",
+      "about": "Monthly content: a set number of shoot visits and deliverables every month"
+    },
+    "production": {
+      "label": "Production",
+      "about": "One-off project: brand film, campaign shoot, edited video and photo package"
+    },
+    "photography": {
+      "label": "Photography",
+      "about": "Photo-only session: products, spaces, portraits, events"
+    }
+  },
+  "sources": {
+    "instagram": "Instagram",
+    "whatsapp": "WhatsApp",
+    "referral": "Referral",
+    "website": "Website",
+    "other": "Other"
+  },
+  "terms": {
+    "deposit_percent": 50,
+    "payment_schedule": {
+      "retainer": "Paid monthly in advance",
+      "production": "50% deposit to start, 50% on delivery",
+      "photography": "50% deposit to start, 50% on delivery"
+    },
+    "revision_rounds": 2,
+    "client_feedback_working_days": 3,
+    "studiio_reply_working_days": 1,
+    "reschedule_notice_hours": 48,
+    "retainer_minimum_months": 3,
+    "retainer_notice_days": 30,
+    "unused_visits_roll_over": false,
+    "raw_footage": "Not included, available at extra cost",
+    "delivery_link_days": 30,
+    "checkin_days_after_delivery": 60,
+    "budget_ranges": [],
+    "signing": "Typed name and date inside the client portal, with a PDF copy emailed to both sides",
+    "payment_methods": ["Cash", "Bank transfer", "Whish", "OMT"],
+    "client_languages": ["en"],
+    "send_without_approval": []
+  },
+  "timing": {
+    "intake_reminder_days": 3,
+    "checklist_reminder_days_before_due": 2,
+    "testimonial_days_after_handover": 3,
+    "renewal_notice_days": 10
+  },
+  "next_actions": {
+    "lead": "Call or message them, then mark qualified or lost",
+    "intake": "Send the intake questionnaire",
+    "proposal": "Send the proposal and quotation",
+    "agreement": "Send the agreement and deposit invoice",
+    "onboarding": "Send the welcome pack and collect the checklist",
+    "kickoff": "Hold the kickoff call and lock the first shoot date",
+    "in_production": "Plan, shoot and edit the first draft",
+    "review": "Collect feedback and get written approval",
+    "delivered": "Send the final files and collect the final payment",
+    "offboarding": "Ask for feedback and a testimonial",
+    "follow_up": "Send the check-in and note the outcome"
+  },
+  "unconfirmed": [
+    "deposit_percent",
+    "payment_schedule",
+    "revision_rounds",
+    "client_feedback_working_days",
+    "studiio_reply_working_days",
+    "reschedule_notice_hours",
+    "retainer_minimum_months",
+    "retainer_notice_days",
+    "unused_visits_roll_over",
+    "raw_footage",
+    "delivery_link_days",
+    "checkin_days_after_delivery",
+    "budget_ranges",
+    "signing",
+    "payment_methods",
+    "client_languages",
+    "send_without_approval"
+  ]
+}

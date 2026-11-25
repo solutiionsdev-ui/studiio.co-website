@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/claude.php';
 require_once __DIR__ . '/lib/leads.php';
+require_once __DIR__ . '/lib/crm.php';
 require_once __DIR__ . '/lib/reels.php';
 
 security_headers();
@@ -81,6 +82,13 @@ switch ("$method $action") {
             'latestLeads' => array_slice($leads, 0, 5),
             'changes'    => $changes,
             'tasks'      => claude_runner() === 'off' ? [] : array_slice(tasks_list(5), 0, 3),
+            'crm'        => (static function (): ?array {
+                try {
+                    return crm_overview();
+                } catch (ApiError $e) {
+                    return null;
+                }
+            })(),
         ]);
 
     case 'GET content':
@@ -113,7 +121,7 @@ switch ("$method $action") {
         respond(['ok' => true]);
 
     case 'GET leads':
-        respond(['leads' => leads_all(), 'statuses' => LEAD_STATUSES]);
+        respond(['leads' => leads_all(), 'statuses' => LEAD_STATUSES, 'inPipeline' => crm_lead_links()]);
 
     case 'GET leads-csv':
         header('Content-Type: text/csv; charset=utf-8');
@@ -145,6 +153,64 @@ switch ("$method $action") {
 
     case 'POST task-discard':
         respond(['task' => task_discard($str('id'))]);
+
+    /* ---- client system: pipeline, clients, projects (see lib/crm.php) ---- */
+
+    case 'GET crm':
+        respond(crm_board());
+
+    case 'GET crm-settings':
+        respond(['settings' => crm_public_settings()]);
+
+    case 'GET crm-client':
+        respond(crm_client_payload($str('id')));
+
+    case 'POST crm-client-create':
+        respond(crm_client_payload(crm_client_create($in, $user)));
+
+    case 'POST crm-client':
+        respond(crm_client_payload(crm_client_update($str('id'), (array) ($in['fields'] ?? []), $user)));
+
+    case 'POST crm-client-delete':
+        crm_client_delete($str('id'));
+        respond(['ok' => true]);
+
+    case 'POST crm-project-create':
+        $pid = crm_project_create($str('client_id'), $in, $user);
+        respond(crm_client_payload($str('client_id')) + ['project_id' => $pid]);
+
+    case 'POST crm-project':
+        respond(crm_client_payload(crm_project_update($str('id'), (array) ($in['fields'] ?? []), $user)));
+
+    case 'POST crm-move':
+        respond(crm_client_payload(crm_move($str('id'), $str('to'), $str('reason'), $user)));
+
+    case 'POST crm-close':
+        respond(crm_client_payload(crm_close($str('id'), $str('outcome'), $str('reason'), $user)));
+
+    case 'POST crm-reopen':
+        respond(crm_client_payload(crm_reopen($str('id'), $user)));
+
+    case 'POST crm-record':
+        respond(crm_client_payload(crm_record($str('id'), $str('what'), $in, $user)));
+
+    case 'POST crm-shoot':
+        respond(crm_client_payload(crm_shoot($str('id'), $str('op'), $str('date'), $str('reason'), $user)));
+
+    case 'POST crm-checklist':
+        respond(crm_client_payload(crm_checklist($str('id'), $in, $user)));
+
+    case 'POST crm-payment':
+        respond(crm_client_payload(crm_payment_add($str('id'), $in, $user)));
+
+    case 'POST crm-payment-delete':
+        respond(crm_client_payload(crm_payment_delete($str('payment_id'), $user)));
+
+    case 'POST crm-message':
+        respond(crm_client_payload(crm_message_add($str('id'), $in, $user)));
+
+    case 'POST crm-message-delete':
+        respond(crm_client_payload(crm_message_delete($str('message_id'))));
 
     /* ---- reel editor (this Mac only, see lib/reels.php) ---- */
 

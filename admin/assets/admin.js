@@ -203,6 +203,7 @@ const NAV = [
   ['copy', 'Copy (EN / AR)'],
   ['clients', 'Client logos'],
   ['label', 'Business'],
+  ['pipeline', 'Pipeline'],
   ['leads', 'Leads'],
   ['reels', 'Reels'],
   ['label', 'Claude Code'],
@@ -281,6 +282,7 @@ async function refreshBadges() {
     const d = await api('overview');
     const set = (id, n) => { const b = $(`[data-badge="${id}"]`); if (b) { b.textContent = n; b.hidden = !n; } };
     set('leads', d.newLeads);
+    set('pipeline', d.crm?.overdue || 0);
     set('publish', d.changes?.items?.length || 0);
     set('claude', (d.tasks || []).filter((t) => t.status === 'running' || t.status === 'review').length);
   } catch (e) { /* badges are optional */ }
@@ -333,8 +335,9 @@ PAGES.overview = async (el, page) => {
   const local = S.backend === 'local';
   put(el, html`
     <div class="page-head"><div><h1>STUDIIO.CO admin</h1>
-      <p>Edit the website, follow up on leads, and hand bigger changes to Claude Code. Claude Code and this panel work on the same content files.</p></div></div>
+      <p>Run the client pipeline, edit the website, follow up on leads, and hand bigger changes to Claude Code. Claude Code and this panel work on the same content files.</p></div></div>
     <div class="cards">
+      ${d.crm ? html`<a class="card stat" href="#/pipeline"><b>${d.crm.active}</b><span>active ${d.crm.active === 1 ? 'project' : 'projects'}${d.crm.waitingOnClient ? ` · ${d.crm.waitingOnClient} waiting on the client` : ''}${d.crm.overdue ? ` · ${d.crm.overdue} overdue` : ''}</span></a>` : ''}
       <a class="card stat" href="#/leads"><b>${d.newLeads}</b><span>new ${d.newLeads === 1 ? 'lead' : 'leads'} · ${d.totalLeads} total</span></a>
       ${local
         ? html`<a class="card stat" href="#/publish"><b>${pending}</b><span>unpublished ${pending === 1 ? 'change' : 'changes'}${d.changes?.branch ? html` · on <code>${d.changes.branch}</code>` : ''}</span></a>`
@@ -665,7 +668,7 @@ PAGES.clients = async (el, page) => {
 /* ---------- Leads ---------- */
 
 PAGES.leads = async (el, page) => {
-  let { leads, statuses } = await api('leads');
+  let { leads, statuses, inPipeline = {} } = await api('leads');
   if (!page.alive()) return;
   let filter = 'open';
   let q = '';
@@ -688,7 +691,7 @@ PAGES.leads = async (el, page) => {
           <td><span class="mono">${fmtDate(l.created_at)}</span></td>
           <td><b>${l.name}</b><div class="sub">${[l.company, l.email].filter(Boolean).join(' · ')}</div></td>
           <td>${l.service_label || l.service || '—'}</td>
-          <td><span class="status ${l.status}">${l.status}</span></td></tr>`)}
+          <td><span class="status ${l.status}">${l.status}</span>${inPipeline[l.id] ? html` <span class="tag">in pipeline</span>` : ''}</td></tr>`)}
       </tbody></table>` : html`<div class="empty">${leads.length ? 'No leads match this filter.' : 'No leads yet. When someone sends the contact form on studiio.co, it lands here (and in the info@studiio.co inbox).'}</div>`}`);
     const box = $('[data-q]', el);
     if (q) { box.focus(); box.setSelectionRange(q.length, q.length); }
@@ -713,6 +716,9 @@ PAGES.leads = async (el, page) => {
       <label class="field">Notes <span class="hint">Only you see these.</span><textarea name="notes" rows="4">${lead.notes}</textarea></label>
       <div class="drawer-foot">
         <button class="btn btn-danger" type="button" data-delete>Delete</button>
+        ${inPipeline[lead.id]
+          ? html`<a class="btn" href="#/pipeline/${inPipeline[lead.id]}" data-close>Open in pipeline</a>`
+          : html`<button class="btn" type="button" data-pipeline>Add to pipeline</button>`}
         <a class="btn" href="mailto:${encodeURIComponent(lead.email)}?subject=${subject}">Reply by email</a>
         <button class="btn btn-primary" type="button" data-save-lead>Save</button>
       </div>`);
@@ -728,6 +734,13 @@ PAGES.leads = async (el, page) => {
       } catch (e) { showError(e); }
     };
     $('[name=status]', p).addEventListener('change', (e) => update({ status: e.target.value }, `Marked as ${e.target.value}.`));
+    $('[data-pipeline]', p)?.addEventListener('click', () => {
+      panel.close();
+      newClientPanel({
+        lead_id: lead.id, business_name: lead.company || lead.name, contact_name: lead.name, email: lead.email,
+        channel: 'email', source: 'website', track: { digital: 'retainer', production: 'production' }[lead.service] || '',
+      });
+    });
     $('[data-save-lead]', p).addEventListener('click', () => update({ notes: $('[name=notes]', p).value }, 'Notes saved.'));
     $('[data-delete]', p).addEventListener('click', async () => {
       if (!confirm(`Delete ${lead.name}'s enquiry for good? This can't be undone. (Archive it instead to keep a record.)`)) return;
@@ -752,6 +765,614 @@ PAGES.leads = async (el, page) => {
   el.addEventListener('input', (e) => { if (e.target.matches('[data-q]')) { q = e.target.value.trim().toLowerCase(); render(); } });
   render();
 };
+
+/* ---------- Pipeline: clients, projects and their stages (lib/crm.php) ---------- */
+
+const usd = (n) => '$' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const fmtDay = (ymd) => {
+  if (!ymd) return '';
+  const d = new Date(ymd + 'T12:00:00');
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+};
+const daysIn = (iso) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+const formData = (form) => Object.fromEntries(new FormData(form).entries());
+/** wa.me link for a number written with its country code (+961 … or 00961 …). */
+const waLink = (phone) => {
+  const p = String(phone || '').trim();
+  if (!/^(\+|00)/.test(p)) return '';
+  const digits = p.replace(/\D/g, '').replace(/^00/, '');
+  return digits.length >= 8 ? `https://wa.me/${digits}` : '';
+};
+
+/** Small centred form. onSubmit(data, form) returns false to keep it open. */
+function formModal(title, fields, action, onSubmit, { onClose } = {}) {
+  const panel = openPanel(html`
+    <div class="drawer-head"><h2>${title}</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+    <form class="crm-form">${fields}
+      <div class="crm-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">${action}</button></div>
+    </form>`, { modal: true, onClose });
+  panel.el.classList.add('modal-sm');
+  const form = $('form', panel.el);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('[type=submit]', form);
+    btn.disabled = true;
+    try {
+      if ((await onSubmit(formData(form), form)) !== false) panel.close();
+    } finally { btn.disabled = false; }
+  });
+  return panel;
+}
+
+/** Ask for a short text (a reason). Resolves the text, or null when cancelled. */
+function askText({ title, intro = '', items = [], label = 'Reason', placeholder = '', required = true, action = 'Continue' }) {
+  return new Promise((resolve) => {
+    let answer = null;
+    formModal(title, html`
+      ${intro ? html`<p style="margin:0">${intro}</p>` : ''}
+      ${items.length ? html`<ul class="unmet">${items.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
+      <label class="field">${label}<textarea name="text" rows="3" placeholder="${placeholder}" ${required ? 'required' : ''}></textarea></label>`,
+    action, (data) => { answer = data.text.trim(); if (required && !answer) return false; }, { onClose: () => resolve(answer) });
+  });
+}
+
+/** The two-minute New client form. prefill can carry a website enquiry (lead_id). */
+async function newClientPanel(prefill = {}) {
+  let C;
+  try { C = (await api('crm-settings')).settings; } catch (e) { showError(e); return; }
+  const { el: p, close } = openPanel(html`
+    <div class="drawer-head"><h2>New client</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+    <p class="muted" style="margin:0">${prefill.lead_id ? 'From a website enquiry. ' : ''}The two-minute version: the rest comes from the intake questionnaire.</p>
+    <form class="crm-form" data-new>
+      <label class="field">Business name<input name="business_name" type="text" value="${prefill.business_name || ''}" autocomplete="off"></label>
+      <div class="grid-2">
+        <label class="field">Contact person<input name="contact_name" type="text" value="${prefill.contact_name || ''}" autocomplete="off"></label>
+        <label class="field">Role <span class="hint">optional</span><input name="role" type="text" placeholder="Owner, marketing manager…"></label>
+      </div>
+      <div class="grid-2">
+        <label class="field">Phone / WhatsApp <span class="hint">with country code</span><input name="phone" type="tel" placeholder="+961 …" value="${prefill.phone || ''}"></label>
+        <label class="field">Email<input name="email" type="email" value="${prefill.email || ''}"></label>
+      </div>
+      <div class="field"><span>Preferred channel</span><div class="chips">${Object.entries(C.channels).map(([k, v]) => html`
+        <label class="chip"><input type="radio" name="channel" value="${k}" ${k === (prefill.channel || 'whatsapp') ? 'checked' : ''}>${v}</label>`)}</div></div>
+      <div class="field"><span>Track</span><div class="track-pick">${Object.entries(C.tracks).map(([k, t]) => html`
+        <label class="track-opt"><input type="radio" name="track" value="${k}" required ${k === prefill.track ? 'checked' : ''}><b>${t.label}</b><span>${t.about || ''}</span></label>`)}</div></div>
+      <div class="grid-2">
+        <label class="field">Source<select name="source">${Object.entries(C.sources).map(([k, v]) => html`<option value="${k}" ${k === prefill.source ? 'selected' : ''}>${v}</option>`)}</select></label>
+        <label class="field">Referred by <span class="hint">optional</span><input name="referred_by" type="text"></label>
+      </div>
+      <label class="field">Project title <span class="hint">optional</span><input name="title" type="text" placeholder="e.g. Monthly reels"></label>
+      <div class="drawer-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Create client</button></div>
+    </form>`);
+  $('[data-new]', p).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('[type=submit]', e.target);
+    btn.disabled = true;
+    try {
+      const r = await api('crm-client-create', { method: 'POST', body: { ...formData(e.target), lead_id: prefill.lead_id || '' } });
+      close();
+      toast('Client added to the pipeline.');
+      location.hash = `#/pipeline/${r.client.id}`;
+    } catch (err) {
+      if (err.status === 409 && err.data?.client_id) { close(); toast(err.message, 'warn'); location.hash = `#/pipeline/${err.data.client_id}`; return; }
+      showError(err);
+    } finally { btn.disabled = false; }
+  });
+}
+
+PAGES.pipeline = async (el, page) => {
+  const id = (location.hash.match(/^#\/pipeline\/([a-f0-9]{12})/) || [])[1];
+  if (id) return crmClientPage(el, page, id);
+  const d = await api('crm');
+  if (!page.alive()) return;
+  const C = d.settings;
+  let view = 'board';
+  let track = 'all';
+  let q = '';
+  let showClosed = false;
+  const trackLabel = (k) => C.tracks[k]?.label || k;
+  const stageLabel = Object.fromEntries(C.stages.map((s) => [s.key, s.label]));
+  const shown = (p) => (showClosed || p.status === 'open') && (track === 'all' || p.track === track)
+    && (!q || [p.client, p.contact, p.title].join(' ').toLowerCase().includes(q));
+  const late = (p) => p.status === 'open' && p.next_action_due && p.next_action_due < C.today;
+  const blockFlag = (p) => (p.blocked_by === 'client' ? html`<span class="flag">Waiting on client</span>` : p.blocked_by === 'studiio' ? html`<span class="flag us">On us</span>` : '');
+
+  const card = (p) => html`
+    <a class="pcard${p.blocked_by === 'client' ? ' blocked' : ''}${p.status !== 'open' ? ' closed' : ''}" href="#/pipeline/${p.client_id}?p=${p.id}">
+      <span class="pcard-top"><b>${p.client}</b>${blockFlag(p)}</span>
+      <span class="pcard-title">${p.title}</span>
+      <span class="pcard-meta"><span class="tag">${trackLabel(p.track)}</span>${p.status === 'open'
+        ? html`<span>${plural(daysIn(p.stage_entered_at), 'day')} in stage</span>` : html`<span class="status ${p.status}">${p.status}</span>`}</span>
+      ${p.next_action && p.status === 'open' ? html`<span class="pcard-next${late(p) ? ' late' : ''}">${p.next_action}${p.next_action_due
+        ? html` · <span class="mono">${late(p) ? 'overdue, ' : ''}${fmtDay(p.next_action_due)}</span>` : ''}</span>` : ''}
+      ${p.ready ? html`<span class="pcard-ready">Ready for the next stage</span>` : ''}
+    </a>`;
+
+  const listView = (list) => (list.length ? html`<table class="table"><thead><tr><th>Client</th><th>Project</th><th>Stage</th><th>Next action</th></tr></thead><tbody>
+    ${list.map((p) => html`<tr data-href="#/pipeline/${p.client_id}?p=${p.id}" tabindex="0">
+      <td><b>${p.client}</b>${p.contact && p.contact !== p.client ? html`<div class="sub">${p.contact}</div>` : ''}</td>
+      <td>${p.title}<div class="sub">${trackLabel(p.track)}</div></td>
+      <td>${p.status === 'open' ? html`${stageLabel[p.stage]}<div class="sub">${plural(daysIn(p.stage_entered_at), 'day')}</div>` : html`<span class="status ${p.status}">${p.status}</span>`}</td>
+      <td>${p.status === 'open' ? p.next_action : ''}${blockFlag(p)}${p.next_action_due && p.status === 'open' ? html`<div class="sub${late(p) ? ' late' : ''}">${late(p) ? 'Overdue: ' : 'Due '}${fmtDay(p.next_action_due)}</div>` : ''}</td>
+    </tr>`)}</tbody></table>` : html`<div class="empty">No projects match.</div>`);
+
+  const render = () => {
+    const list = d.projects.filter(shown);
+    put(el, html`
+      <div class="page-head"><div><h1>Pipeline</h1><p>Every ${C.business} client by stage. A project moves on once its stage is done; open a card to see what’s missing.</p></div>
+        <div class="head-actions"><button class="btn btn-primary" type="button" data-new>New client</button></div></div>
+      <div class="toolbar">
+        <div class="tabs" role="group" aria-label="View">${[['board', 'Board'], ['list', 'List']].map(([k, v]) => html`<button class="tab" type="button" data-view="${k}" aria-pressed="${k === view}">${v}</button>`)}</div>
+        <div class="tabs" role="group" aria-label="Track">${[['all', 'All tracks'], ...Object.entries(C.tracks).map(([k, t]) => [k, t.label])].map(([k, v]) => html`
+          <button class="tab" type="button" data-track="${k}" aria-pressed="${k === track}">${v}</button>`)}</div>
+        <input type="search" placeholder="Search clients…" value="${q}" data-q aria-label="Search clients">
+        <label class="chip"><input type="checkbox" data-closed ${showClosed ? 'checked' : ''}>Show closed</label>
+      </div>
+      ${!d.projects.length ? html`<div class="empty">No clients yet. Add one with <b>New client</b>, or from a website enquiry in <a href="#/leads">Leads</a>.</div>`
+        : view === 'board' ? html`<div class="board">${C.stages.map((s) => {
+          const cards = list.filter((p) => p.stage === s.key);
+          return html`<section class="col${cards.length ? '' : ' is-empty'}" aria-label="${s.label}" title="${cards.length ? '' : `${s.label}: nothing here`}"><h2><span>${s.label}</span><small>${cards.length}</small></h2>${cards.map(card)}</section>`;
+        })}</div>`
+        : listView(list)}`);
+    const box = $('[data-q]', el);
+    if (q) { box.focus(); box.setSelectionRange(q.length, q.length); }
+  };
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-new]')) { newClientPanel(); return; }
+    const v = e.target.closest('[data-view]');
+    if (v) { view = v.dataset.view; render(); return; }
+    const t = e.target.closest('[data-track]');
+    if (t) { track = t.dataset.track; render(); return; }
+    const tr = e.target.closest('tr[data-href]');
+    if (tr) location.hash = tr.dataset.href;
+  });
+  el.addEventListener('keydown', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr && e.key === 'Enter') location.hash = tr.dataset.href; });
+  el.addEventListener('input', (e) => { if (e.target.matches('[data-q]')) { q = e.target.value.trim().toLowerCase(); render(); } });
+  el.addEventListener('change', (e) => { if (e.target.matches('[data-closed]')) { showClosed = e.target.checked; render(); } });
+  render();
+};
+
+/** What to ask when recording each step by hand. */
+const CRM_RECORD_FORM = {
+  qualified: { note: 'How did you qualify them? (optional)', ph: 'e.g. Call on Monday, budget fits' },
+  intake: { note: 'Note (optional)', ph: 'e.g. Answered on a call', link: 'Link to the answers (optional)' },
+  proposal: { note: 'Where did they accept?', ph: 'e.g. WhatsApp message', required: true },
+  agreement: { note: 'Note (optional)', link: 'Link to the signed copy (optional)' },
+  kickoff: { note: 'Note (optional)', ph: 'e.g. Call, recap sent on WhatsApp' },
+  draft: { note: 'Note (optional)', link: 'Link to the draft (optional)' },
+  approved: { note: 'How did they approve?', ph: 'e.g. “All good, go ahead” on WhatsApp', required: true },
+  testimonial: { note: 'Note (optional)' },
+  checkin: { note: 'Outcome', ph: 'e.g. Happy with the results, wants a campaign in March', required: true },
+};
+
+async function crmClientPage(el, page, id) {
+  let d = await api('crm-client', { params: { id } });
+  if (!page.alive()) return;
+  const C = d.settings;
+  const stageNo = (k) => C.stages.findIndex((s) => s.key === k);
+  const stageLabel = (k) => C.stages[stageNo(k)]?.label || k;
+  const trackLabel = (k) => C.tracks[k]?.label || k;
+  let pid = new URLSearchParams(location.hash.split('?')[1] || '').get('p');
+  const project = () => d.projects.find((p) => p.id === pid) || d.projects[0];
+  const drafts = {}; // unsaved edits in the project forms, kept across re-renders
+
+  const OVERRIDE_TITLE = { 'crm-move': 'Move it anyway?', 'crm-shoot': 'Book the shoot anyway?', 'crm-close': 'Close it anyway?' };
+  const call = async (action, body, msg) => {
+    try {
+      const r = await api(action, { method: 'POST', body });
+      if (!page.alive()) return null;
+      d = r;
+      render();
+      if (msg) toast(msg);
+      refreshBadges();
+      return r;
+    } catch (e) {
+      if (e.status === 409 && e.data?.needs_override) {
+        const reason = await askText({
+          title: OVERRIDE_TITLE[action] || 'Do it anyway?', intro: 'Not done yet:', items: e.data.unmet || [],
+          label: 'Why are you overriding? This is saved in the activity log.', action: 'Override',
+        });
+        return reason ? call(action, { ...body, reason }, msg) : null;
+      }
+      showError(e);
+      return null;
+    }
+  };
+
+  const saveKept = async (key) => {
+    const form = $(`form[data-keep="${key}"]`, el);
+    if (!form) return;
+    const r = await call('crm-project', { id: pid, fields: formData(form) }, key === 'details' ? 'Project details saved.' : 'Next action saved.');
+    if (r) { delete drafts[key]; setDirty(Object.keys(drafts).length > 0); render(); }
+  };
+  page.save = async () => { for (const key of Object.keys(drafts)) await saveKept(key); };
+
+  const recordModal = (what) => {
+    const p = project();
+    const f = CRM_RECORD_FORM[what] || {};
+    const r = p.records?.[what] || {};
+    formModal(C.records[what], html`
+      <label class="field">Date<input name="date" type="date" value="${r.date || C.today}" required></label>
+      <label class="field">${f.note || 'Note'}<textarea name="note" rows="2" placeholder="${f.ph || ''}" ${f.required ? 'required' : ''}>${r.note || ''}</textarea></label>
+      ${f.link ? html`<label class="field">${f.link}<input name="link" type="url" placeholder="https://…" value="${r.link || ''}"></label>` : ''}`,
+    'Save', async (data) => !!(await call('crm-record', { id: p.id, what, ...data }, `${C.records[what]}: saved.`)));
+  };
+
+  const payModal = () => {
+    const p = project();
+    const owed = Math.max(0, (p.price || 0) - p.paid);
+    const kind = p.stage === 'agreement' && !p.paid ? 'deposit' : p.stage === 'delivered' ? 'final' : p.track === 'retainer' ? 'monthly' : 'other';
+    const amount = kind === 'deposit' && p.price ? Math.round(p.price * C.depositPercent) / 100 : kind === 'final' ? owed : '';
+    formModal('Record a payment', html`
+      <div class="grid-2">
+        <label class="field">Amount (${C.currency})<input name="amount" type="number" min="0" step="0.01" value="${amount || ''}" required></label>
+        <label class="field">Date<input name="date" type="date" value="${C.today}" required></label>
+      </div>
+      <div class="grid-2">
+        <label class="field">Method<select name="method">${C.paymentMethods.map((m) => html`<option>${m}</option>`)}</select></label>
+        <label class="field">For<select name="kind">${Object.entries(C.paymentKinds).map(([k, v]) => html`<option value="${k}" ${k === kind ? 'selected' : ''}>${v}</option>`)}</select></label>
+      </div>
+      <label class="field">Note <span class="hint">optional</span><input name="note" type="text"></label>`,
+    'Record payment', async (data) => !!(await call('crm-payment', { id: p.id, ...data }, 'Payment recorded.')));
+  };
+
+  const messageModal = () => {
+    const p = project();
+    formModal('Log a message', html`
+      <div class="grid-2">
+        <label class="field">Date<input name="date" type="date" value="${C.today}" required></label>
+        <label class="field">Channel<select name="channel">${Object.entries(C.messageChannels).map(([k, v]) => html`<option value="${k}" ${k === d.client.channel ? 'selected' : ''}>${v}</option>`)}</select></label>
+      </div>
+      <div class="field"><span>Direction</span><div class="chips">
+        <label class="chip"><input type="radio" name="direction" value="out" checked>We sent</label>
+        <label class="chip"><input type="radio" name="direction" value="in">They sent</label></div></div>
+      <label class="field">Summary<textarea name="summary" rows="3" required placeholder="e.g. Sent the proposal and quotation"></textarea></label>`,
+    'Log it', async (data) => !!(await call('crm-message', { id: p.id, ...data }, 'Message logged.')));
+  };
+
+  const addProjectModal = () => formModal('New project', html`
+    <p class="muted" style="margin:0">For a returning client. It starts at the Lead stage.</p>
+    <div class="track-pick">${Object.entries(C.tracks).map(([k, t]) => html`
+      <label class="track-opt"><input type="radio" name="track" value="${k}" required><b>${t.label}</b><span>${t.about || ''}</span></label>`)}</div>
+    <label class="field">Project title <span class="hint">optional</span><input name="title" type="text"></label>`,
+  'Add project', async (data) => {
+    try {
+      const r = await api('crm-project-create', { method: 'POST', body: { client_id: d.client.id, ...data } });
+      location.hash = `#/pipeline/${d.client.id}?p=${r.project_id}`;
+    } catch (e) { showError(e); return false; }
+  });
+
+  const editClient = () => {
+    const c = d.client;
+    const { el: p, close } = openPanel(html`
+      <div class="drawer-head"><h2>Edit client</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <form class="crm-form" data-client>
+        <label class="field">Business name<input name="business_name" type="text" value="${c.business_name}"></label>
+        <div class="grid-2">
+          <label class="field">Contact person<input name="contact_name" type="text" value="${c.contact_name}"></label>
+          <label class="field">Role<input name="role" type="text" value="${c.role}"></label>
+        </div>
+        <div class="grid-2">
+          <label class="field">Phone / WhatsApp <span class="hint">with country code</span><input name="phone" type="tel" value="${c.phone}"></label>
+          <label class="field">Email<input name="email" type="email" value="${c.email}"></label>
+        </div>
+        <div class="grid-2">
+          <label class="field">Instagram<input name="instagram" type="text" value="${c.instagram}" placeholder="@handle"></label>
+          <label class="field">Website<input name="website" type="text" value="${c.website}"></label>
+        </div>
+        <div class="field"><span>Preferred channel</span><div class="chips">${Object.entries(C.channels).map(([k, v]) => html`
+          <label class="chip"><input type="radio" name="channel" value="${k}" ${k === c.channel ? 'checked' : ''}>${v}</label>`)}</div></div>
+        <div class="grid-2">
+          <label class="field">Source<select name="source">${Object.entries(C.sources).map(([k, v]) => html`<option value="${k}" ${k === c.source ? 'selected' : ''}>${v}</option>`)}</select></label>
+          <label class="field">Referred by<input name="referred_by" type="text" value="${c.referred_by}"></label>
+        </div>
+        <label class="field">Notes <span class="hint">Only you see these.</span><textarea name="notes" rows="4">${c.notes}</textarea></label>
+        <div class="drawer-foot">
+          <button class="btn btn-danger" type="button" data-delete-client>Delete client</button>
+          <button class="btn" type="button" data-close>Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>`);
+    $('[data-client]', p).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (await call('crm-client', { id: c.id, fields: formData(e.target) }, 'Client saved.')) close();
+    });
+    $('[data-delete-client]', p).addEventListener('click', async () => {
+      const name = c.business_name || c.contact_name;
+      if (!confirm(`Delete ${name} and everything recorded about them (projects, checklist, payments, messages, activity)? This can't be undone.`)) return;
+      try {
+        await api('crm-client-delete', { method: 'POST', body: { id: c.id } });
+        close();
+        toast(`${name} deleted.`);
+        location.hash = '#/pipeline';
+      } catch (err) { showError(err); }
+    });
+  };
+
+  /* ---- pieces of the page ---- */
+
+  const condAction = (g, r) => {
+    if (C.records[g.record]) {
+      return r ? html`<span class="cond-btns"><button class="btn btn-sm" type="button" data-record="${g.record}">Edit</button><button class="btn btn-sm" type="button" data-undo="${g.record}">Undo</button></span>`
+        : html`<button class="btn btn-sm btn-primary" type="button" data-record="${g.record}">Record…</button>`;
+    }
+    if (g.record === 'payment') return html`<button class="btn btn-sm${g.met ? '' : ' btn-primary'}" type="button" data-pay>Record payment…</button>`;
+    if (g.record === 'shoot') return g.met ? '' : html`<button class="btn btn-sm btn-primary" type="button" data-goto="crm-shoots">Add a shoot date</button>`;
+    if (g.key === 'checklist') return html`<button class="btn btn-sm" type="button" data-goto="crm-checklist">Open the checklist</button>`;
+    return '';
+  };
+
+  const gateCard = (p) => {
+    if (p.status !== 'open') {
+      return html`<section class="card gate is-closed"><div class="gate-head"><div>
+        <p class="eyebrow">Closed ${fmtDate(p.closed_at)}</p><h2>${p.status === 'lost' ? 'Lost' : 'Done'}</h2>
+        <p class="muted" style="margin:0">Was at ${stageLabel(p.stage)}.</p></div>
+        <div class="head-actions"><button class="btn" type="button" data-reopen>Reopen</button></div></div></section>`;
+    }
+    const cur = stageNo(p.stage);
+    const next = C.stages[cur + 1];
+    const ready = p.gate.every((g) => g.met);
+    return html`<section class="card gate">
+      <div class="gate-head">
+        <div><p class="eyebrow">Stage ${cur + 1} of ${C.stages.length} · ${plural(daysIn(p.stage_entered_at), 'day')} here</p><h2>${stageLabel(p.stage)}</h2></div>
+        <div class="head-actions">${next
+          ? html`<button class="btn${ready ? ' btn-accent' : ''}" type="button" data-move="${next.key}">${ready ? `Move to ${next.label}` : `Move to ${next.label} anyway…`}</button>`
+          : html`<button class="btn${ready ? ' btn-accent' : ''}" type="button" data-done>${ready ? 'Close project' : 'Close project anyway…'}</button>`}</div>
+      </div>
+      <p class="gate-lede">${ready ? 'Everything for this stage is done.' : 'To move on:'}</p>
+      <ul class="conds">${p.gate.map((g) => {
+        const r = C.records[g.record] ? p.records?.[g.record] : null;
+        return html`<li class="${g.met ? 'met' : ''}">
+          <span class="tick" aria-hidden="true">${g.met ? '✓' : ''}</span>
+          <div class="cond-main"><b>${g.label}</b>${g.detail ? html`<span class="muted"> · ${g.detail}</span>` : ''}
+            ${r ? html`<div class="cond-rec">${fmtDay(r.date)}${r.note ? ` · ${r.note}` : ''}${r.link ? html` · <a href="${r.link}" target="_blank" rel="noopener">open link</a>` : ''}</div>` : ''}</div>
+          ${condAction(g, r)}</li>`;
+      })}</ul>
+      <div class="gate-foot">
+        ${cur > 0 ? html`<label class="inline">Move back to <select data-back><option value="">choose…</option>${C.stages.slice(0, cur).map((s) => html`<option value="${s.key}">${s.label}</option>`)}</select></label>` : html`<span></span>`}
+        <button class="btn btn-sm btn-danger" type="button" data-lost>Mark as lost</button>
+      </div>
+    </section>`;
+  };
+
+  const nextCard = (p) => html`<section class="card"><h2>Next action</h2>
+    <form class="crm-form" data-keep="next">
+      <label class="field">What happens next<input name="next_action" type="text" value="${p.next_action}"></label>
+      <div class="grid-2">
+        <label class="field">Due<input name="next_action_due" type="date" value="${p.next_action_due}"></label>
+        <div class="field"><span>Waiting on</span><div class="chips">${[['', 'Nobody'], ['client', 'The client'], ['studiio', 'Studiio']].map(([k, v]) => html`
+          <label class="chip"><input type="radio" name="blocked_by" value="${k}" ${p.blocked_by === k ? 'checked' : ''}>${v}</label>`)}</div></div>
+      </div>
+      <div class="crm-foot"><button class="btn btn-sm btn-primary" type="submit">Save</button></div>
+    </form></section>`;
+
+  const checklistCard = (p) => {
+    const items = d.checklist.filter((i) => i.project_id === p.id);
+    const req = items.filter((i) => i.required);
+    const got = req.filter((i) => i.status !== 'waiting').length;
+    const cats = Object.entries(C.categories).filter(([k]) => items.some((i) => i.category === k));
+    return html`<section class="card" id="crm-checklist">
+      <div class="card-head"><h2>Asset and access checklist</h2>${items.length ? html`<span class="muted">${got} of ${req.length} required received</span>` : ''}</div>
+      ${!items.length ? html`<p class="muted">It’s created from the ${trackLabel(p.track)} track when the project reaches Onboarding.</p>
+        <button class="btn btn-sm" type="button" data-gen>Create it now</button>` : html`
+        ${cats.map(([k, label]) => html`<h3 class="item-cat">${label}</h3>${items.filter((i) => i.category === k).map((it) => html`
+          <div class="item ${it.status}">
+            <div class="item-main">
+              <span class="item-label">${it.label}</span>
+              <span class="item-meta">${it.required ? '' : html`<span class="tag">optional</span>`}${it.received_at ? html`<span class="mono">received ${fmtDay(it.received_at)}</span>` : ''}${it.due_date && it.status === 'waiting'
+                ? html`<span class="mono${it.due_date < C.today ? ' late' : ''}">due ${fmtDay(it.due_date)}</span>` : ''}</span>
+              <input class="item-note" type="text" data-note="${it.id}" value="${it.note}" placeholder="Note or link" aria-label="Note">
+            </div>
+            <div class="crm-seg" role="group" aria-label="Status">${[['waiting', 'Waiting'], ['received', 'Received'], ['not_needed', 'Not needed']].map(([s, v]) => html`
+              <button type="button" data-item="${it.id}" data-status="${s}" aria-pressed="${it.status === s}">${v}</button>`)}</div>
+            <button class="icon-btn" type="button" data-del-item="${it.id}" aria-label="Remove item">✕</button>
+          </div>`)}`)}
+        <form class="add-item" data-add-item>
+          <input name="label" type="text" placeholder="Something else the client needs to send" aria-label="New item">
+          <select name="category" aria-label="Category">${Object.entries(C.categories).map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select>
+          <label class="chip"><input type="checkbox" name="required" checked>Required</label>
+          <button class="btn btn-sm" type="submit">Add</button>
+        </form>
+        <form class="inline-form" data-due>
+          <label class="inline">Due date for everything still waiting <input name="due_date" type="date"></label>
+          <button class="btn btn-sm" type="submit">Set</button>
+        </form>`}
+    </section>`;
+  };
+
+  const paymentsCard = (p) => {
+    const pays = d.payments.filter((x) => x.project_id === p.id);
+    return html`<section class="card">
+      <div class="card-head"><h2>Payments</h2><button class="btn btn-sm" type="button" data-pay>Record payment…</button></div>
+      <div class="money">
+        <div><span>Price</span><b>${p.price ? usd(p.price) : '—'}</b></div>
+        <div><span>Paid</span><b>${usd(p.paid)}</b></div>
+        <div><span>Outstanding</span><b>${p.price ? usd(Math.max(0, p.price - p.paid)) : '—'}</b></div>
+      </div>
+      ${p.payment_schedule ? html`<p class="muted" style="margin:10px 0 0">${p.payment_schedule}</p>` : ''}
+      ${pays.length ? html`<div class="mini-rows">${pays.map((x) => html`<div class="mini-row">
+        <span class="mono">${fmtDay(x.date)}</span><b>${usd(x.amount)}</b><span>${C.paymentKinds[x.kind] || x.kind} · ${x.method}${x.note ? ` · ${x.note}` : ''}</span>
+        <button class="icon-btn" type="button" data-del-pay="${x.id}" aria-label="Remove payment">✕</button></div>`)}</div>`
+        : html`<p class="muted" style="margin:10px 0 0">No payments recorded yet.</p>`}
+    </section>`;
+  };
+
+  const documentsCard = (p) => {
+    const docs = d.documents.filter((x) => x.project_id === p.id);
+    return html`<section class="card"><h2>Documents</h2>
+      ${docs.length ? html`<div class="mini-rows">${docs.map((x) => html`<div class="mini-row docs">
+        <b>${C.docTypes[x.type] || x.type}</b><span class="status ${x.status}">${x.status === 'signed' && x.type === 'proposal' ? 'accepted' : x.status}</span>
+        <span class="mono">${fmtDay(x.completed_at || x.sent_at)}</span>${x.link ? html`<a href="${x.link}" target="_blank" rel="noopener">open</a>` : html`<span></span>`}</div>`)}</div>`
+        : html`<p class="muted" style="margin:0">Nothing yet. Recording the intake, proposal or agreement adds it here.</p>`}
+    </section>`;
+  };
+
+  const activityCard = (p) => {
+    const evs = d.events.filter((x) => x.project_id === p.id);
+    return html`<section class="card"><h2>Activity</h2>
+      ${evs.length ? html`<ol class="activity">${evs.map((x) => html`<li class="ev-${x.kind}">
+        <span class="mono">${fmtDate(x.at)}</span><span>${x.text}${x.reason ? html`<em> “${x.reason}”</em>` : ''}</span></li>`)}</ol>`
+        : html`<p class="muted" style="margin:0">Nothing yet.</p>`}
+    </section>`;
+  };
+
+  const clientCard = () => {
+    const c = d.client;
+    const ig = c.instagram ? c.instagram.replace(/^@/, '') : '';
+    const site = c.website ? (/^https?:\/\//i.test(c.website) ? c.website : `https://${c.website}`) : '';
+    return html`<section class="card"><div class="card-head"><h2>Client</h2><button class="btn btn-sm" type="button" data-edit-client>Edit</button></div>
+      <dl class="dl">
+        ${c.contact_name ? html`<dt>Contact</dt><dd>${c.contact_name}${c.role ? html` <span class="muted">· ${c.role}</span>` : ''}</dd>` : ''}
+        <dt>Phone</dt><dd>${c.phone || '—'}</dd>
+        <dt>Email</dt><dd>${c.email ? html`<a href="mailto:${encodeURIComponent(c.email)}">${c.email}</a>` : '—'}</dd>
+        ${ig ? html`<dt>Instagram</dt><dd><a href="https://instagram.com/${encodeURIComponent(ig)}" target="_blank" rel="noopener">@${ig}</a></dd>` : ''}
+        ${site ? html`<dt>Website</dt><dd><a href="${site}" target="_blank" rel="noopener">${c.website}</a></dd>` : ''}
+        <dt>Prefers</dt><dd>${C.channels[c.channel] || c.channel}</dd>
+        <dt>Source</dt><dd>${C.sources[c.source] || c.source}${c.referred_by ? ` · referred by ${c.referred_by}` : ''}</dd>
+        <dt>Added</dt><dd>${fmtDate(c.created_at)}</dd>
+      </dl>
+      ${d.lead ? html`<div class="note" style="margin-top:12px"><b>Website enquiry</b> · ${fmtDate(d.lead.created_at)}${d.lead.service_label ? ` · ${d.lead.service_label}` : ''}<p class="lead-quote">${d.lead.message}</p><a href="#/leads">Open Leads</a></div>` : ''}
+      ${c.notes ? html`<p class="lead-msg" style="margin-top:12px">${c.notes}</p>` : ''}
+    </section>`;
+  };
+
+  const detailsCard = (p) => html`<section class="card"><h2>Project details</h2>
+    <form class="crm-form" data-keep="details">
+      <label class="field">Title<input name="title" type="text" value="${p.title}" required></label>
+      <label class="field">Track<select name="track">${Object.entries(C.tracks).map(([k, t]) => html`<option value="${k}" ${k === p.track ? 'selected' : ''}>${t.label}</option>`)}</select></label>
+      <label class="field">Scope <span class="hint">in a few sentences</span><textarea name="scope" rows="3">${p.scope}</textarea></label>
+      <label class="field">Deliverables <span class="hint">one per line</span><textarea name="deliverables" rows="3">${(p.deliverables || []).join('\n')}</textarea></label>
+      <label class="field">Not included <span class="hint">one per line</span><textarea name="exclusions" rows="2">${(p.exclusions || []).join('\n')}</textarea></label>
+      <div class="grid-2">
+        <label class="field">Start<input name="start_date" type="date" value="${p.start_date}"></label>
+        <label class="field">${p.track === 'retainer' ? 'Renewal' : 'End'}<input name="end_date" type="date" value="${p.end_date}"></label>
+      </div>
+      <div class="grid-2">
+        <label class="field">Total price (${p.currency})<input name="price" type="number" min="0" step="0.01" value="${p.price || ''}"></label>
+        <label class="field">Revision rounds<input name="revision_rounds" type="number" min="0" max="20" value="${p.revision_rounds}"></label>
+      </div>
+      <label class="field">Payment schedule<input name="payment_schedule" type="text" value="${p.payment_schedule}"></label>
+      <div class="crm-foot"><button class="btn btn-sm btn-primary" type="submit">Save details</button></div>
+    </form></section>`;
+
+  const shootsCard = (p) => {
+    const before = stageNo(p.stage) < stageNo('kickoff');
+    return html`<section class="card" id="crm-shoots"><h2>Shoot dates</h2>
+      ${(p.shoot_dates || []).length ? html`<div class="mini-rows">${p.shoot_dates.map((s) => html`<div class="mini-row shoots">
+        <b>${fmtDay(s)}</b><span class="muted">${s < C.today ? 'done' : ''}</span><button class="icon-btn" type="button" data-del-shoot="${s}" aria-label="Remove shoot">✕</button></div>`)}</div>`
+        : html`<p class="muted" style="margin:0 0 10px">${before ? 'Shoots are booked from the Kickoff stage on.' : 'No shoot booked yet.'}</p>`}
+      ${p.status === 'open' ? html`<form class="inline-form" data-shoot><input name="date" type="date" required aria-label="Shoot date"><button class="btn btn-sm" type="submit">Book shoot</button></form>` : ''}
+    </section>`;
+  };
+
+  const messagesCard = (p) => {
+    const msgs = d.messages.filter((x) => x.project_id === p.id);
+    return html`<section class="card"><div class="card-head"><h2>Messages</h2><button class="btn btn-sm" type="button" data-msg>Log a message…</button></div>
+      ${msgs.length ? html`<div class="mini-rows">${msgs.map((x) => html`<div class="mini-row msgs">
+        <span class="mono">${fmtDay(x.date)}</span><span><b>${x.direction === 'out' ? 'We sent' : 'They sent'}</b> · ${C.messageChannels[x.channel] || x.channel}<br>${x.summary}</span>
+        <button class="icon-btn" type="button" data-del-msg="${x.id}" aria-label="Remove message">✕</button></div>`)}</div>`
+        : html`<p class="muted" style="margin:0">Messages you send and receive go here. Sending from the admin comes later.</p>`}
+    </section>`;
+  };
+
+  const render = () => {
+    const c = d.client;
+    const p = project();
+    pid = p.id;
+    const cur = stageNo(p.stage);
+    const wa = waLink(c.phone);
+    put(el, html`
+      <a class="back-link" href="#/pipeline">← Pipeline</a>
+      <div class="page-head"><div><h1>${c.business_name || c.contact_name}</h1>
+        <p>${[c.business_name && c.contact_name, c.role].filter(Boolean).join(', ')}${c.contact_name || c.role ? ' · ' : ''}prefers ${C.channels[c.channel] || c.channel}</p></div>
+        <div class="head-actions">
+          ${wa ? html`<a class="btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+          ${c.email ? html`<a class="btn" href="mailto:${encodeURIComponent(c.email)}">Email</a>` : ''}
+        </div></div>
+      <div class="tabs project-tabs" role="group" aria-label="Projects">
+        ${d.projects.map((x) => html`<a class="tab" href="#/pipeline/${c.id}?p=${x.id}" ${x.id === p.id ? 'aria-current="true"' : ''}>${x.title}<small>${x.status === 'open' ? stageLabel(x.stage) : x.status}</small></a>`)}
+        <button class="tab tab-add" type="button" data-add-project>+ New project</button>
+      </div>
+      <ol class="stages ${p.status !== 'open' ? 'is-closed' : ''}" aria-label="Stages">${C.stages.map((s, i) => html`
+        <li class="${i < cur ? 'done' : i === cur ? 'now' : ''}" ${i === cur ? 'aria-current="step"' : ''}><span>${s.label}</span></li>`)}</ol>
+      <div class="crm-grid">
+        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
+        <div class="crm-col">${clientCard()}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}${documentsCard(p)}</div>
+      </div>`);
+    // On narrow screens the stage line scrolls sideways: keep the current stage in view.
+    const line = $('.stages', el);
+    const now = $('.stages li.now', el);
+    if (line && now && line.scrollWidth > line.clientWidth) line.scrollLeft = now.offsetLeft - (line.clientWidth - now.offsetWidth) / 2;
+    // Put back edits that weren't saved yet (a re-render after another action would lose them).
+    for (const [key, vals] of Object.entries(drafts)) {
+      const form = $(`form[data-keep="${key}"]`, el);
+      if (!form) continue;
+      for (const [name, v] of Object.entries(vals)) if (form.elements[name]) form.elements[name].value = v;
+      form.classList.add('dirty');
+    }
+  };
+
+  el.addEventListener('click', async (e) => {
+    const t = e.target;
+    const p = project();
+    const hit = (sel) => t.closest(sel);
+    let b;
+    if ((b = hit('[data-move]'))) return call('crm-move', { id: p.id, to: b.dataset.move }, `Moved to ${stageLabel(b.dataset.move)}.`);
+    if (hit('[data-done]')) return call('crm-close', { id: p.id, outcome: 'done' }, 'Project closed.');
+    if (hit('[data-reopen]')) return call('crm-reopen', { id: p.id }, 'Project reopened.');
+    if (hit('[data-lost]')) {
+      const reason = await askText({ title: 'Mark as lost', label: 'Why? (optional)', placeholder: 'e.g. Went with another studio', required: false, action: 'Mark as lost' });
+      if (reason !== null) call('crm-close', { id: p.id, outcome: 'lost', reason }, 'Marked as lost.');
+      return;
+    }
+    if ((b = hit('[data-record]'))) return recordModal(b.dataset.record);
+    if ((b = hit('[data-undo]'))) {
+      if (confirm(`Undo “${C.records[b.dataset.undo]}”?`)) call('crm-record', { id: p.id, what: b.dataset.undo, clear: true }, 'Undone.');
+      return;
+    }
+    if (hit('[data-pay]')) return payModal();
+    if ((b = hit('[data-del-pay]'))) { if (confirm('Remove this payment?')) call('crm-payment-delete', { payment_id: b.dataset.delPay }, 'Payment removed.'); return; }
+    if ((b = hit('[data-goto]'))) { document.getElementById(b.dataset.goto)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (hit('[data-gen]')) return call('crm-checklist', { id: p.id, op: 'generate' }, 'Checklist created.');
+    if ((b = hit('[data-status]'))) return call('crm-checklist', { id: p.id, op: 'update', item_id: b.dataset.item, status: b.dataset.status });
+    if ((b = hit('[data-del-item]'))) { if (confirm('Remove this checklist item?')) call('crm-checklist', { id: p.id, op: 'delete', item_id: b.dataset.delItem }, 'Item removed.'); return; }
+    if ((b = hit('[data-del-shoot]'))) { if (confirm(`Remove the shoot on ${fmtDay(b.dataset.delShoot)}?`)) call('crm-shoot', { id: p.id, op: 'remove', date: b.dataset.delShoot }, 'Shoot removed.'); return; }
+    if (hit('[data-msg]')) return messageModal();
+    if ((b = hit('[data-del-msg]'))) { if (confirm('Remove this message from the log?')) call('crm-message-delete', { message_id: b.dataset.delMsg }, 'Message removed.'); return; }
+    if (hit('[data-edit-client]')) return editClient();
+    if (hit('[data-add-project]')) return addProjectModal();
+  });
+  el.addEventListener('change', (e) => {
+    const t = e.target;
+    const p = project();
+    if (t.matches('[data-back]') && t.value) {
+      const to = t.value;
+      t.value = '';
+      if (confirm(`Move ${p.title} back to ${stageLabel(to)}?`)) call('crm-move', { id: p.id, to }, `Moved back to ${stageLabel(to)}.`);
+    } else if (t.matches('[data-note]')) {
+      call('crm-checklist', { id: p.id, op: 'update', item_id: t.dataset.note, note: t.value }, 'Note saved.');
+    }
+  });
+  el.addEventListener('input', (e) => {
+    const form = e.target.closest('form[data-keep]');
+    if (!form) return;
+    drafts[form.dataset.keep] = formData(form);
+    form.classList.add('dirty');
+    setDirty(true);
+  });
+  el.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const p = project();
+    const data = formData(f);
+    if (f.matches('[data-keep]')) saveKept(f.dataset.keep);
+    else if (f.matches('[data-shoot]')) call('crm-shoot', { id: p.id, op: 'add', date: data.date }, 'Shoot booked.');
+    else if (f.matches('[data-add-item]')) { if (data.label.trim()) call('crm-checklist', { id: p.id, op: 'add', label: data.label, category: data.category, required: !!data.required }, 'Item added.'); }
+    else if (f.matches('[data-due]')) call('crm-checklist', { id: p.id, op: 'due', due_date: data.due_date }, data.due_date ? 'Due date set.' : 'Due date cleared.');
+  });
+  render();
+}
 
 /* ---------- Reels (client reels edited with Reels Montage PRO on this Mac) ---------- */
 

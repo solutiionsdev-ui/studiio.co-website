@@ -25,6 +25,16 @@
     "subject": "Welcome to Studiio",
     "text": "Welcome to Studiio, {{contact_first_name}}! Here is exactly how the next weeks will go: {{link}}"
   },
+  "invoice_link": {
+    "label": "Invoice",
+    "subject": "Invoice {{invoice_no}}: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, here is invoice {{invoice_no}} for {{project_title}}: {{invoice_amount}}, due {{invoice_due}}. {{link}}"
+  },
+  "payment_thanks": {
+    "label": "Payment received, thank you",
+    "subject": "Payment received",
+    "text": "Hi {{contact_first_name}}, we received your payment of {{last_payment}}. Thank you!"
+  },
   "kickoff_recap": {
     "label": "Kickoff recap",
     "subject": "Kickoff recap: {{project_title}}",

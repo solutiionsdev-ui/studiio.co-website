@@ -558,6 +558,13 @@ function crm_client_delete(string $id): void
         if (crm_index($db['clients'], $id) === null) {
             throw new ApiError('That client no longer exists.', 404);
         }
+        foreach ($db['documents'] as $d) { // their PDFs and document snapshots
+            if (($d['client_id'] ?? '') === $id) {
+                foreach (glob(data_path('crm/files/') . $d['id'] . '-v*.{pdf,json}', GLOB_BRACE) ?: [] as $f) {
+                    @unlink($f);
+                }
+            }
+        }
         $db['clients'] = array_values(array_filter($db['clients'], static fn($c) => $c['id'] !== $id));
         foreach (array_diff(CRM_COLLECTIONS, ['clients']) as $col) {
             $db[$col] = array_values(array_filter($db[$col], static fn($r) => ($r['client_id'] ?? '') !== $id));
@@ -792,6 +799,9 @@ function crm_record(string $pid, string $what, array $in, string $by): string
             }
         }
         crm_log($db, $p, $by, 'record', ($clear ? 'Undone: ' : '') . $def['label'] . (!$clear && $note !== '' ? " ($note)" : ''));
+        if ($what === 'approved' && !$clear) {
+            crm_invoice_auto_final($db, $p, $by);
+        }
         return $p['client_id'];
     });
 }
@@ -937,16 +947,29 @@ function crm_payment_add(string $pid, array $in, string $by): string
     }
     $date = crm_date($in['date'] ?? '') ?: crm_today();
     $method = crm_pick($in['method'] ?? '', [...$s['terms']['payment_methods'], 'Other'], 'payment method');
-    $kind = crm_pick($in['kind'] ?? '', array_keys(CRM_PAYMENT_KINDS), 'payment type');
+    $invoiceId = crm_text($in['invoice_id'] ?? '', 20);
+    $kind = $invoiceId !== '' ? 'other' : crm_pick($in['kind'] ?? '', array_keys(CRM_PAYMENT_KINDS), 'payment type');
     $note = crm_text($in['note'] ?? '', 300);
-    return crm_tx(static function (array &$db) use ($pid, $amount, $date, $method, $kind, $note, $by, $s): string {
+    return crm_tx(static function (array &$db) use ($pid, $amount, $date, $method, $kind, $note, $by, $s, $invoiceId): string {
         $p = $db['projects'][crm_project_at($db, $pid)];
+        $invNo = '';
+        if ($invoiceId !== '') {
+            $k = crm_index($db['documents'], $invoiceId);
+            if ($k === null || $db['documents'][$k]['type'] !== 'invoice' || $db['documents'][$k]['project_id'] !== $pid) {
+                throw new ApiError('That invoice no longer exists.', 404);
+            }
+            $kind = $db['documents'][$k]['kind'] ?? 'other';
+            $invNo = ' for ' . $db['documents'][$k]['invoice_no'];
+        }
         $db['payments'][] = [
             'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid,
             'amount' => $amount, 'currency' => $s['business']['currency'], 'date' => $date, 'method' => $method,
-            'kind' => $kind, 'invoice_id' => '', 'note' => $note, 'created_at' => gmdate('c'), 'created_by' => $by,
+            'kind' => $kind, 'invoice_id' => $invoiceId, 'note' => $note, 'created_at' => gmdate('c'), 'created_by' => $by,
         ];
-        crm_log($db, $p, $by, 'payment', 'Payment recorded: ' . crm_usd($amount) . ' (' . strtolower(CRM_PAYMENT_KINDS[$kind]) . ", $method, $date)");
+        crm_log($db, $p, $by, 'payment', 'Payment recorded: ' . crm_usd($amount) . $invNo . ' (' . strtolower(CRM_PAYMENT_KINDS[$kind] ?? $kind) . ", $method, $date)");
+        if ($invoiceId !== '') {
+            crm_invoice_sync($db, $invoiceId);
+        }
         return $p['client_id'];
     });
 }
@@ -960,6 +983,9 @@ function crm_payment_delete(string $id, string $by): string
         }
         $pay = $db['payments'][$n];
         array_splice($db['payments'], $n, 1);
+        if (($pay['invoice_id'] ?? '') !== '') {
+            crm_invoice_sync($db, $pay['invoice_id']);
+        }
         $i = crm_index($db['projects'], $pay['project_id']);
         if ($i !== null) {
             crm_log($db, $db['projects'][$i], $by, 'payment', 'Payment removed: ' . crm_usd((float) $pay['amount']) . " ({$pay['date']})");
@@ -1000,6 +1026,9 @@ function crm_message_add(string $pid, array $in, string $by): string
                 $db['documents'][$k]['sent_at'] = gmdate('c');
             }
             crm_log($db, $p, $by, 'document', crm_doc_title($db['documents'][$k]['type']) . ' sent (' . CRM_MESSAGE_CHANNELS[$channel] . ')');
+            if ($db['documents'][$k]['type'] === 'agreement') {
+                crm_invoice_auto_agreement($db, $p, $by);
+            }
         }
         return $p['client_id'];
     });
@@ -1107,7 +1136,8 @@ function crm_client_payload(string $id): array
     }
     return [
         'client' => $client, 'lead' => $lead, 'projects' => $projects, 'checklist' => $mine('checklist'),
-        'documents' => array_map(static fn($d) => ['link' => $d['type'] === 'intake' || ($d['file'] ?? '') !== '' ? crm_doc_link($d) : ''] + $d, $mine('documents')), 'payments' => $payments, 'messages' => $messages, 'events' => $events,
+        'documents' => array_map(static fn($d) => ['link' => $d['type'] === 'intake' || ($d['file'] ?? '') !== '' ? crm_doc_link($d) : '']
+            + ($d['type'] === 'invoice' ? ['paid_amount' => crm_invoice_paid($db, $d['id'])] : []) + $d, $mine('documents')), 'payments' => $payments, 'messages' => $messages, 'events' => $events,
         'cycles' => $mine('cycles'), 'settings' => crm_public_settings(),
     ];
 }
@@ -1123,6 +1153,8 @@ function crm_overview(): array
         'waitingOnClient' => count(array_filter($open, static fn($p) => $p['blocked_by'] === 'client')),
         'overdue' => count(array_filter($open, static fn($p) => $p['next_action_due'] !== '' && $p['next_action_due'] < $today)),
         'clients' => count($db['clients']),
+        'outstanding' => array_sum(array_map(static fn($d) => $d['type'] === 'invoice' && $d['status'] !== 'void'
+            ? max(0, (float) $d['amount'] - crm_invoice_paid($db, $d['id'])) : 0, $db['documents'])),
     ];
 }
 
@@ -1180,5 +1212,6 @@ function crm_intake_fill_checklist(array &$db, array $p): void
     }
 }
 
-// Documents, client links and the intake questionnaire (phase 2).
+// Documents, client links and the intake questionnaire (phase 2), invoices and payments (phase 3).
 require_once __DIR__ . '/crm-docs.php';
+require_once __DIR__ . '/crm-pay.php';

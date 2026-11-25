@@ -295,6 +295,12 @@ function crm_doc_vars(array $db, array $p, array $c, array $extra = []): array
         'delivery_link' => (string) ($p['delivery_link'] ?? ''),
         'link_expiry_date' => crm_long_date(date('Y-m-d', (int) strtotime($expiryBase . ' +' . (int) $t['delivery_link_days'] . ' days'))),
         'link' => '',
+        'invoice_no' => '', 'invoice_amount' => '', 'invoice_due' => '',
+        'last_payment' => (static function () use ($db, $p): string {
+            $mine = array_filter($db['payments'], static fn($x) => $x['project_id'] === $p['id']);
+            usort($mine, static fn($a, $b) => strcmp($a['date'] . $a['created_at'], $b['date'] . $b['created_at']));
+            return $mine ? crm_usd((float) end($mine)['amount']) : '';
+        })(),
     ];
     $vars['approver_or_one_person'] = $vars['approver'] !== '' ? $vars['approver'] : 'the person you name';
     return $extra + $vars;
@@ -463,7 +469,10 @@ function crm_doc_status(string $docId, string $status, string $by): string
         $db['documents'][$k]['sent_at'] = $status === 'sent' ? ($d['sent_at'] ?: gmdate('c')) : '';
         $i = crm_index($db['projects'], $d['project_id']);
         if ($i !== null) {
-            crm_log($db, $db['projects'][$i], $by, 'document', crm_doc_title($d['type']) . ($status === 'sent' ? ' marked as sent' : ' back to draft'));
+            crm_log($db, $db['projects'][$i], $by, 'document', crm_doc_title($d['type']) . ($d['type'] === 'invoice' ? " {$d['invoice_no']}" : '') . ($status === 'sent' ? ' marked as sent' : ' back to draft'));
+            if ($status === 'sent' && $d['type'] === 'agreement') {
+                crm_invoice_auto_agreement($db, $db['projects'][$i], $by);
+            }
         }
         return $d['client_id'];
     });
@@ -477,7 +486,7 @@ function crm_doc_pdf_file(array $doc, array $client): array
         throw new ApiError('This document has no PDF yet.', 404);
     }
     $who = trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $client['business_name'] ?: $client['contact_name']), '-');
-    $what = str_replace(' ', '-', crm_doc_title($doc['type']));
+    $what = $doc['type'] === 'invoice' ? (string) $doc['invoice_no'] : str_replace(' ', '-', crm_doc_title($doc['type']));
     return [$path, "STUDIIO-$what-" . ($who ?: 'client') . ($doc['version'] > 1 ? "-v{$doc['version']}" : '') . '.pdf'];
 }
 
@@ -511,7 +520,13 @@ function crm_message_draft(string $pid, string $key, string $docId = ''): array
         }
         $link = crm_doc_link($db['documents'][$k]);
     }
-    $vars = crm_doc_vars($db, $p, $c, ['link' => $link]);
+    $extra = ['link' => $link];
+    if ($docId !== '' && $db['documents'][$k]['type'] === 'invoice') {
+        $inv = $db['documents'][$k];
+        $extra += ['invoice_no' => $inv['invoice_no'], 'invoice_amount' => crm_usd(max(0, (float) $inv['amount'] - crm_invoice_paid($db, $inv['id']))),
+            'invoice_due' => $inv['due_date'] !== '' ? crm_long_date($inv['due_date']) : lcfirst((string) (crm_tpl_json('labels')['invoice']['on_receipt'] ?? 'on receipt'))];
+    }
+    $vars = crm_doc_vars($db, $p, $c, $extra);
     return ['subject' => crm_tpl_text((string) ($tpls[$key]['subject'] ?? ''), $vars), 'text' => crm_tpl_text((string) $tpls[$key]['text'], $vars)];
 }
 
@@ -720,6 +735,12 @@ function crm_doc_pdf(array $snap): string
                 $pdf->line($R - 170, $y + 16, $R, $y + 16, 0.9, CRM_BLACK);
                 $pdf->text($R - 170, $y, mb_strtoupper($lTotal), false, 9, CRM_INK, 2);
                 $pdf->textRight($R, $y, $b['total'], true, 15, CRM_INK);
+                foreach ($b['extra'] ?? [] as $n => [$label, $value]) {
+                    $last = $n === count($b['extra']) - 1;
+                    $y -= $last ? 24 : 20;
+                    $pdf->text($R - 170, $y, mb_strtoupper((string) $label), false, 8, $last ? CRM_INK : CRM_GREY, 1.6);
+                    $pdf->textRight($R, $y, (string) $value, $last, $last ? 13 : 10, $last ? CRM_INK : CRM_GREY);
+                }
                 $y -= 12;
                 break;
         }
@@ -803,7 +824,9 @@ function crm_blocks_html(array $blocks): string
                 $out .= '<table class="quote"><thead><tr><th>' . crm_h($lDesc) . '</th><th>' . crm_h($lAmount) . '</th></tr></thead><tbody><tr><td><strong>'
                     . crm_h($b['title']) . '</strong>' . implode('', array_map(static fn($d) => '<span>' . crm_h((string) $d) . '</span>', $b['details']))
                     . '</td><td><strong>' . crm_h($b['amount']) . '</strong></td></tr></tbody><tfoot><tr><td>' . crm_h($lTotal) . '</td><td>'
-                    . crm_h($b['total']) . "</td></tr></tfoot></table>\n";
+                    . crm_h($b['total']) . '</td></tr>'
+                    . implode('', array_map(static fn($r) => '<tr class="extra"><td>' . crm_h((string) $r[0]) . '</td><td>' . crm_h((string) $r[1]) . '</td></tr>', $b['extra'] ?? []))
+                    . "</tfoot></table>\n";
                 break;
         }
     }
@@ -1155,6 +1178,9 @@ function crm_template_errors(): array
                 $errors[] = "{$type}_link is missing (the message that sends the " . str_replace('_', ' ', $type) . ').';
             }
         }
+        if (!isset(crm_tpl_json('messages')['invoice_link'])) {
+            $errors[] = 'invoice_link is missing (the message that sends an invoice).';
+        }
         if (!isset(crm_tpl_json('messages')['intake_link'])) {
             $errors[] = 'intake_link is missing (the message that sends the questionnaire).';
         }
@@ -1204,7 +1230,12 @@ function crm_template_errors(): array
     $errors = [];
     try {
         $labels = crm_tpl_json('labels');
-        foreach (CRM_MAKE_TYPES as $type) {
+        foreach (['billed_to', 'number', 'due', 'on_receipt', 'paid', 'amount_due', 'how_to_pay', 'methods', 'deposit', 'final', 'monthly'] as $key) {
+            if (!is_string($labels['invoice'][$key] ?? null)) {
+                $errors[] = "invoice.$key (invoice wording) is missing.";
+            }
+        }
+        foreach ([...CRM_MAKE_TYPES, 'invoice'] as $type) {
             if (!is_string($labels['documents'][$type] ?? null)) {
                 $errors[] = "documents.$type (the document's title) is missing.";
             }

@@ -11,7 +11,8 @@ What it manages today:
 | Hero reel | `content/reel.json`: the film strip and full-screen reel |
 | Copy (EN / AR) | `content/copy.json`: every string on the page, side by side |
 | Client logos | `content/clients.json`: upload, reorder, rename, scale |
-| Pipeline | The client system: every client and project through the 11 onboarding stages, with stage checks, checklist, payments, shoots, messages and an activity log. Stored privately, never in Git. |
+| Pipeline | The client system: every client and project through the 11 onboarding stages, with stage checks, checklist, documents, invoices, payments, shoots, messages and an activity log. Stored privately, never in Git. |
+| Payments | Invoices and payments across all clients: received, outstanding, per month, CSV export, and the private "how to pay" text for invoices. |
 | Leads | Enquiries from the contact form: status, private notes, reply, CSV export, **Add to pipeline**. Stored privately, never in Git. |
 | Reels | (this Mac only) Client reels edited with Reels Montage PRO: beats, an effect per beat, live preview, chat with Claude, preview frames, render |
 | Ask Claude | Send a task to Claude Code; review its changes; publish or discard |
@@ -68,7 +69,13 @@ Where things live: the records (clients, projects, checklist, documents, payment
 
 Nothing is sent automatically. PDFs are made by the admin itself (`lib/pdf.php`), so they work on this Mac and online. Client records on this Mac and online are separate: use studiio.co/admin for real clients, so their links point to studiio.co.
 
-Not built yet (spec phases 3 to 6): invoices and a payments view, drafted messages with one-click approval and n8n, the client portal (signing, uploads), and monthly retainer cycles.
+**Invoices and payments** (phase 3):
+
+- On the client page, **Payments** lists the project's invoices (deposit, final, monthly for retainers, or other), numbered `INV-YYYY-NNN`, each with a PDF, a client page and **Send…**. Sending the agreement drafts the deposit invoice (a retainer's first month), and recording the client's approval drafts the final invoice; drafts are never sent by themselves.
+- **Record payment…** (or **Paid…** on an invoice) records a payment against an invoice; the invoice turns paid when it is covered and its PDF shows what was paid. The stage checks (deposit, final payment) follow the payments.
+- The **Payments** page: received this month and this year, outstanding invoices (overdue marked), projects not invoiced yet, totals per month, every payment (filter by month, **Export CSV**), and **How to pay**: the Whish number or bank details printed on invoices, kept privately in the data folder, never in Git.
+
+Not built yet (spec phases 4 to 6): drafted messages with one-click approval and n8n, the client portal (signing, uploads), and monthly retainer cycles.
 
 ### Reels (this Mac only)
 
@@ -131,6 +138,7 @@ admin/
   lib/leads.php      lead storage (used by contact.php too)
   lib/crm.php        Pipeline: clients, projects, stage checks, checklist, payments, messages, activity
   lib/crm-docs.php   Pipeline documents: templates, proposal/quotation/agreement/welcome pack, intake form, messages
+  lib/crm-pay.php    Pipeline invoices and the Payments page
   lib/pdf.php        small PDF writer (Helvetica, the STUDIIO logo from img/studiio-logo.svg), no libraries
   crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)
   lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)

@@ -204,6 +204,7 @@ const NAV = [
   ['clients', 'Client logos'],
   ['label', 'Business'],
   ['pipeline', 'Pipeline'],
+  ['payments', 'Payments'],
   ['leads', 'Leads'],
   ['reels', 'Reels'],
   ['label', 'Claude Code'],
@@ -337,7 +338,7 @@ PAGES.overview = async (el, page) => {
     <div class="page-head"><div><h1>STUDIIO.CO admin</h1>
       <p>Run the client pipeline, edit the website, follow up on leads, and hand bigger changes to Claude Code. Claude Code and this panel work on the same content files.</p></div></div>
     <div class="cards">
-      ${d.crm ? html`<a class="card stat" href="#/pipeline"><b>${d.crm.active}</b><span>active ${d.crm.active === 1 ? 'project' : 'projects'}${d.crm.waitingOnClient ? ` · ${d.crm.waitingOnClient} waiting on the client` : ''}${d.crm.overdue ? ` · ${d.crm.overdue} overdue` : ''}</span></a>` : ''}
+      ${d.crm ? html`<a class="card stat" href="#/pipeline"><b>${d.crm.active}</b><span>active ${d.crm.active === 1 ? 'project' : 'projects'}${d.crm.waitingOnClient ? ` · ${d.crm.waitingOnClient} waiting on the client` : ''}${d.crm.overdue ? ` · ${d.crm.overdue} overdue` : ''}${d.crm.outstanding ? ` · ${usd(d.crm.outstanding)} to collect` : ''}</span></a>` : ''}
       <a class="card stat" href="#/leads"><b>${d.newLeads}</b><span>new ${d.newLeads === 1 ? 'lead' : 'leads'} · ${d.totalLeads} total</span></a>
       ${local
         ? html`<a class="card stat" href="#/publish"><b>${pending}</b><span>unpublished ${pending === 1 ? 'change' : 'changes'}${d.changes?.branch ? html` · on <code>${d.changes.branch}</code>` : ''}</span></a>`
@@ -662,6 +663,72 @@ PAGES.clients = async (el, page) => {
     warnings(r.warnings);
     refreshBadges();
   };
+  render();
+};
+
+/* ---------- Payments (invoices and payments across all clients, lib/crm-pay.php) ---------- */
+
+PAGES.payments = async (el, page) => {
+  let v = await api('crm-payments');
+  if (!page.alive()) return;
+  let month = 'all';
+  const thisMonth = v.months[v.months.length - 1];
+  const go = (cid, pid) => `#/pipeline/${cid}?p=${pid}`;
+  const render = () => {
+    const max = Math.max(1, ...v.months.map((m) => Math.max(m.received, m.invoiced)));
+    const pays = v.payments.filter((x) => month === 'all' || x.date.startsWith(month));
+    const payMonths = [...new Set(v.payments.map((x) => x.date.slice(0, 7)))];
+    put(el, html`
+      <div class="page-head"><div><h1>Payments</h1><p>What came in and from whom, what is still owed, and totals per month. ${v.currency}, no tax.</p></div>
+        <div class="head-actions"><a class="btn" href="${API}?action=crm-payments-csv" download>Export CSV</a></div></div>
+      <div class="cards">
+        <div class="card stat"><b>${usd(v.totals.thisMonth)}</b><span>received in ${thisMonth.label}</span></div>
+        <div class="card stat"><b>${usd(v.totals.outstanding)}</b><span>outstanding · ${plural(v.outstanding.length, 'invoice')}${v.totals.overdue ? html` · <span class="late">${v.totals.overdue} overdue</span>` : ''}</span></div>
+        <div class="card stat"><b>${usd(v.totals.thisYear)}</b><span>received in ${v.today.slice(0, 4)}</span></div>
+      </div>
+      <section class="card section-gap"><h2>Outstanding invoices</h2>
+        ${v.outstanding.length ? html`<table class="table"><thead><tr><th>Client</th><th>Invoice</th><th>Due</th><th>Status</th></tr></thead><tbody>
+          ${v.outstanding.map((o) => html`<tr data-href="${go(o.client_id, o.project_id)}" tabindex="0">
+            <td><b>${o.client}</b><div class="sub">${o.project}</div></td>
+            <td><span class="mono">${o.invoice_no}</span><div class="sub">${o.label} · issued ${fmtDay(o.issue_date)}</div></td>
+            <td><b>${usd(o.due)}</b>${o.paid ? html`<div class="sub">of ${usd(o.amount)}</div>` : ''}</td>
+            <td><span class="status ${o.status}">${o.status === 'viewed' ? 'opened' : o.status}</span>${o.overdue ? html` <span class="flag">overdue</span>` : ''}</td></tr>`)}
+        </tbody></table>` : html`<p class="muted" style="margin:0">Nothing outstanding.</p>`}
+      </section>
+      ${v.uninvoiced.length ? html`<section class="card section-gap"><h2>Not invoiced yet</h2>
+        <table class="table"><thead><tr><th>Client</th><th>Stage</th><th>Price</th><th>Still to invoice</th></tr></thead><tbody>
+          ${v.uninvoiced.map((u) => html`<tr data-href="${go(u.client_id, u.project_id)}" tabindex="0">
+            <td><b>${u.client}</b><div class="sub">${u.project}</div></td><td>${u.stage}</td><td>${usd(u.price)}</td><td><b>${usd(u.left)}</b></td></tr>`)}
+        </tbody></table></section>` : ''}
+      <section class="card section-gap"><h2>Per month</h2>
+        <div class="months">${v.months.map((m) => html`<div class="month-row">
+          <span class="mono">${m.label}</span>
+          <span class="bars"><span class="bar in" style="width:${(m.received / max) * 100}%"></span><span class="bar inv" style="width:${(m.invoiced / max) * 100}%"></span></span>
+          <span><b>${usd(m.received)}</b><small>received</small></span><span>${usd(m.invoiced)}<small>invoiced</small></span></div>`)}</div>
+      </section>
+      <section class="card section-gap"><div class="card-head"><h2>Payments received</h2>
+        <select data-month aria-label="Month"><option value="all">All months</option>${payMonths.map((m) => html`<option value="${m}" ${m === month ? 'selected' : ''}>${v.months.find((x) => x.month === m)?.label || m}</option>`)}</select></div>
+        ${pays.length ? html`<table class="table"><thead><tr><th>Date</th><th>Client</th><th>Amount</th><th>Method</th></tr></thead><tbody>
+          ${pays.map((x) => html`<tr data-href="${go(x.client_id, x.project_id)}" tabindex="0">
+            <td><span class="mono">${fmtDay(x.date)}</span></td><td><b>${x.client}</b><div class="sub">${x.project}</div></td>
+            <td><b>${usd(x.amount)}</b>${x.invoice_no ? html`<div class="sub mono">${x.invoice_no}</div>` : ''}</td><td>${x.method}<div class="sub">${C_KINDS[x.kind] || x.kind}</div></td></tr>`)}
+        </tbody></table>` : html`<p class="muted" style="margin:0">No payments yet.</p>`}
+      </section>
+      <section class="card section-gap"><h2>How to pay</h2>
+        <p class="muted" style="margin:0 0 10px">Printed on every invoice under “We accept …”: for example your Whish number or bank details. It is kept privately on the server, not in the website’s code. Saving updates the invoices that aren’t paid yet.</p>
+        <form class="crm-form" data-details><textarea name="text" rows="4" maxlength="1000" placeholder="e.g. Whish: …&#10;Bank transfer: bank name, account name, IBAN">${v.payDetails}</textarea>
+          <div class="crm-foot"><button class="btn btn-sm btn-primary" type="submit">Save</button></div></form>
+      </section>`);
+  };
+  const C_KINDS = { deposit: 'Deposit', final: 'Final payment', monthly: 'Monthly', other: 'Other' };
+  el.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href; });
+  el.addEventListener('keydown', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr && e.key === 'Enter') location.hash = tr.dataset.href; });
+  el.addEventListener('change', (e) => { if (e.target.matches('[data-month]')) { month = e.target.value; render(); } });
+  el.addEventListener('submit', async (e) => {
+    if (!e.target.matches('[data-details]')) return;
+    e.preventDefault();
+    try { v = await api('crm-pay-details', { method: 'POST', body: { text: e.target.elements.text.value } }); toast('Saved. Unpaid invoices now show it.'); render(); } catch (err) { showError(err); }
+  });
   render();
 };
 
@@ -999,22 +1066,57 @@ async function crmClientPage(el, page, id) {
     'Save', async (data) => !!(await call('crm-record', { id: p.id, what, ...data }, `${C.records[what]}: saved.`)));
   };
 
-  const payModal = () => {
+  const openInvoices = (p) => d.documents.filter((x) => x.project_id === p.id && x.type === 'invoice' && (x.paid_amount || 0) < x.amount);
+
+  const payModal = (invoiceId = '') => {
     const p = project();
+    const open = openInvoices(p);
+    const pick = open.find((x) => x.id === invoiceId) || open[0];
     const owed = Math.max(0, (p.price || 0) - p.paid);
     const kind = p.stage === 'agreement' && !p.paid ? 'deposit' : p.stage === 'delivered' ? 'final' : p.track === 'retainer' ? 'monthly' : 'other';
-    const amount = kind === 'deposit' && p.price ? Math.round(p.price * C.depositPercent) / 100 : kind === 'final' ? owed : '';
-    formModal('Record a payment', html`
+    const left = (x) => Math.round((x.amount - (x.paid_amount || 0)) * 100) / 100;
+    const amount = pick ? left(pick) : kind === 'deposit' && p.price ? Math.round(p.price * C.depositPercent) / 100 : kind === 'final' ? owed : '';
+    const panel = formModal('Record a payment', html`
+      ${open.length ? html`<label class="field">For invoice<select name="invoice_id">
+        ${open.map((x) => html`<option value="${x.id}" ${x === pick ? 'selected' : ''}>${x.invoice_no} · ${x.label} · ${usd(left(x))} due</option>`)}
+        <option value="">No invoice</option></select></label>` : ''}
       <div class="grid-2">
         <label class="field">Amount (${C.currency})<input name="amount" type="number" min="0" step="0.01" value="${amount || ''}" required></label>
         <label class="field">Date<input name="date" type="date" value="${C.today}" required></label>
       </div>
       <div class="grid-2">
         <label class="field">Method<select name="method">${C.paymentMethods.map((m) => html`<option>${m}</option>`)}</select></label>
-        <label class="field">For<select name="kind">${Object.entries(C.paymentKinds).map(([k, v]) => html`<option value="${k}" ${k === kind ? 'selected' : ''}>${v}</option>`)}</select></label>
+        <label class="field" data-kind ${pick ? 'hidden' : ''}>For<select name="kind">${Object.entries(C.paymentKinds).map(([k, v]) => html`<option value="${k}" ${k === kind ? 'selected' : ''}>${v}</option>`)}</select></label>
       </div>
       <label class="field">Note <span class="hint">optional</span><input name="note" type="text"></label>`,
     'Record payment', async (data) => !!(await call('crm-payment', { id: p.id, ...data }, 'Payment recorded.')));
+    const f = $('form', panel.el);
+    f.elements.invoice_id?.addEventListener('change', () => {
+      const x = open.find((i) => i.id === f.elements.invoice_id.value);
+      $('[data-kind]', f).hidden = !!x;
+      if (x) f.elements.amount.value = left(x);
+    });
+  };
+
+  const invoiceModal = (kind) => {
+    const p = project();
+    const invs = d.documents.filter((x) => x.project_id === p.id && x.type === 'invoice');
+    const invoiced = invs.reduce((n, x) => n + x.amount, 0);
+    const next = (() => { // the first month without an invoice, from the start date (or this month)
+      let m = (p.start_date || C.today).slice(0, 7);
+      while (invs.some((x) => x.month === m)) { const [y, mo] = m.split('-').map(Number); m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; }
+      return m;
+    })();
+    const body = {
+      deposit: html`<p style="margin:0">Deposit of ${p.price ? usd(Math.round(p.price * C.depositPercent) / 100) : '…'} (${C.depositPercent}% of ${p.price ? usd(p.price) : 'the price'}).</p>`,
+      final: html`<p style="margin:0">Final invoice for what is left: ${p.price ? usd(Math.max(0, p.price - invoiced)) : '…'} (${usd(p.price || 0)} less ${usd(invoiced)} already invoiced).</p>`,
+      monthly: html`<label class="field">Month<input name="month" type="month" value="${next}" required></label><p class="muted" style="margin:0">${p.price ? usd(p.price) : 'Set the monthly price first.'}</p>`,
+      other: html`<label class="field">What it’s for<input name="description" type="text" placeholder="e.g. Extra revision round" required></label>
+        <label class="field">Amount (${C.currency})<input name="amount" type="number" min="0" step="0.01" required></label>`,
+    }[kind];
+    formModal({ deposit: 'Deposit invoice', final: 'Final invoice', monthly: 'Monthly invoice', other: 'Other invoice' }[kind], html`${body}
+      <label class="field">Note <span class="hint">optional, printed on the invoice</span><input name="note" type="text"></label>`,
+    'Make invoice', async (data) => !!(await call('crm-invoice', { id: p.id, kind, ...data }, 'Invoice ready.')));
   };
 
   const messageModal = () => {
@@ -1161,7 +1263,10 @@ async function crmClientPage(el, page, id) {
       return r ? html`<span class="cond-btns"><button class="btn btn-sm" type="button" data-record="${g.record}">Edit</button><button class="btn btn-sm" type="button" data-undo="${g.record}">Undo</button></span>`
         : html`<button class="btn btn-sm btn-primary" type="button" data-record="${g.record}">Record…</button>`;
     }
-    if (g.record === 'payment') return html`<button class="btn btn-sm${g.met ? '' : ' btn-primary'}" type="button" data-pay>Record payment…</button>`;
+    if (g.record === 'payment') {
+      const inv = openInvoices(project())[0];
+      return html`<span class="cond-btns">${inv ? '' : html`<button class="btn btn-sm" type="button" data-goto="crm-pay">Invoices</button>`}<button class="btn btn-sm${g.met ? '' : ' btn-primary'}" type="button" data-pay>Record payment…</button></span>`;
+    }
     if (g.record === 'shoot') return g.met ? '' : html`<button class="btn btn-sm btn-primary" type="button" data-goto="crm-shoots">Add a shoot date</button>`;
     if (g.key === 'checklist') return html`<button class="btn btn-sm" type="button" data-goto="crm-checklist">Open the checklist</button>`;
     return '';
@@ -1247,23 +1352,42 @@ async function crmClientPage(el, page, id) {
 
   const paymentsCard = (p) => {
     const pays = d.payments.filter((x) => x.project_id === p.id);
-    return html`<section class="card">
+    const invs = d.documents.filter((x) => x.project_id === p.id && x.type === 'invoice');
+    const invNo = Object.fromEntries(invs.map((x) => [x.id, x.invoice_no]));
+    const kinds = p.track === 'retainer' ? [['monthly', 'Monthly'], ['other', 'Other']] : [['deposit', 'Deposit'], ['final', 'Final'], ['other', 'Other']];
+    return html`<section class="card" id="crm-pay">
       <div class="card-head"><h2>Payments</h2><button class="btn btn-sm" type="button" data-pay>Record payment…</button></div>
       <div class="money">
-        <div><span>Price</span><b>${p.price ? usd(p.price) : '—'}</b></div>
+        <div><span>${p.track === 'retainer' ? 'Per month' : 'Price'}</span><b>${p.price ? usd(p.price) : '—'}</b></div>
         <div><span>Paid</span><b>${usd(p.paid)}</b></div>
-        <div><span>Outstanding</span><b>${p.price ? usd(Math.max(0, p.price - p.paid)) : '—'}</b></div>
+        <div><span>${p.track === 'retainer' ? 'Invoiced' : 'Outstanding'}</span><b>${p.track === 'retainer' ? usd(invs.reduce((n, x) => n + x.amount, 0)) : p.price ? usd(Math.max(0, p.price - p.paid)) : '—'}</b></div>
       </div>
       ${p.payment_schedule ? html`<p class="muted" style="margin:10px 0 0">${p.payment_schedule}</p>` : ''}
+      <div class="sub-head"><h3>Invoices</h3><span class="make-row">${kinds.map(([k, v]) => html`<button class="btn btn-sm" type="button" data-invoice="${k}">+ ${v}</button>`)}</span></div>
+      ${invs.length ? html`<div class="mini-rows">${invs.map((x) => html`<div class="doc-row">
+        <div class="doc-main"><b class="mono">${x.invoice_no}</b> ${x.label} · <b>${usd(x.amount)}</b>
+          <span class="status ${x.status}">${x.status === 'viewed' ? 'opened' : x.status}</span>
+          <div class="sub">${[`issued ${fmtDay(x.issue_date)}`, x.paid_amount && x.status !== 'paid' ? `${usd(x.paid_amount)} paid, ${usd(x.amount - x.paid_amount)} left` : '',
+            x.paid_at ? `paid ${fmtDay(x.paid_at)}` : '', x.sent_at ? `sent ${fmtDate(x.sent_at)}` : ''].filter(Boolean).join(' · ')}</div></div>
+        <div class="doc-actions">
+          <a class="btn btn-sm" href="${API}?action=crm-doc-pdf&id=${x.id}" target="_blank" rel="noopener">PDF</a>
+          <a class="btn btn-sm" href="${x.link}&preview=1" target="_blank" rel="noopener">Page</a>
+          <button class="btn btn-sm" type="button" data-copy-link="${x.link}">Copy link</button>
+          ${x.status !== 'paid' ? html`<button class="btn btn-sm" type="button" data-pay-invoice="${x.id}">Paid…</button>
+            <button class="btn btn-sm btn-primary" type="button" data-send-doc="${x.id}" data-template="invoice_link">Send…</button>` : ''}
+          ${!x.paid_amount ? html`<button class="icon-btn" type="button" data-del-invoice="${x.id}" aria-label="Delete invoice">✕</button>` : ''}
+        </div></div>`)}</div>`
+        : html`<p class="muted" style="margin:6px 0 0">${p.track === 'retainer' ? 'The first month’s invoice is drafted when you send the agreement.' : 'The deposit invoice is drafted when you send the agreement, and the final one when the client approves.'}</p>`}
+      <div class="sub-head"><h3>Received</h3></div>
       ${pays.length ? html`<div class="mini-rows">${pays.map((x) => html`<div class="mini-row">
-        <span class="mono">${fmtDay(x.date)}</span><b>${usd(x.amount)}</b><span>${C.paymentKinds[x.kind] || x.kind} · ${x.method}${x.note ? ` · ${x.note}` : ''}</span>
+        <span class="mono">${fmtDay(x.date)}</span><b>${usd(x.amount)}</b><span>${C.paymentKinds[x.kind] || x.kind} · ${x.method}${x.invoice_id && invNo[x.invoice_id] ? html` · <span class="mono">${invNo[x.invoice_id]}</span>` : ''}${x.note ? ` · ${x.note}` : ''}</span>
         <button class="icon-btn" type="button" data-del-pay="${x.id}" aria-label="Remove payment">✕</button></div>`)}</div>`
-        : html`<p class="muted" style="margin:10px 0 0">No payments recorded yet.</p>`}
+        : html`<p class="muted" style="margin:6px 0 0">No payments recorded yet.</p>`}
     </section>`;
   };
 
   const documentsCard = (p) => {
-    const docs = d.documents.filter((x) => x.project_id === p.id && x.type !== 'intake');
+    const docs = d.documents.filter((x) => x.project_id === p.id && x.type !== 'intake' && x.type !== 'invoice');
     const has = (k) => docs.some((x) => x.type === k && x.file);
     return html`<section class="card" id="crm-docs"><h2>Documents</h2>
       <div class="make-row">${Object.entries(C.makeTypes).map(([k, v]) => html`<button class="btn btn-sm" type="button" data-make="${k}">${has(k) ? 'Update' : 'Make'} ${v.toLowerCase()}</button>`)}</div>
@@ -1432,6 +1556,13 @@ async function crmClientPage(el, page, id) {
       return;
     }
     if (hit('[data-pay]')) return payModal();
+    if ((b = hit('[data-pay-invoice]'))) return payModal(b.dataset.payInvoice);
+    if ((b = hit('[data-invoice]'))) return invoiceModal(b.dataset.invoice);
+    if ((b = hit('[data-del-invoice]'))) {
+      const x = d.documents.find((i) => i.id === b.dataset.delInvoice);
+      if (x && confirm(`Delete invoice ${x.invoice_no}?${x.status !== 'draft' ? ' It was already sent: tell the client it no longer applies.' : ''}`)) call('crm-invoice-delete', { invoice_id: x.id }, 'Invoice deleted.');
+      return;
+    }
     if ((b = hit('[data-del-pay]'))) { if (confirm('Remove this payment?')) call('crm-payment-delete', { payment_id: b.dataset.delPay }, 'Payment removed.'); return; }
     if ((b = hit('[data-goto]'))) { document.getElementById(b.dataset.goto)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (hit('[data-gen]')) return call('crm-checklist', { id: p.id, op: 'generate' }, 'Checklist created.');

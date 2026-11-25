@@ -5,7 +5,8 @@
     "quotation": "Quotation",
     "agreement": "Service agreement",
     "welcome_pack": "Welcome pack",
-    "kickoff_agenda": "Kickoff agenda"
+    "kickoff_agenda": "Kickoff agenda",
+    "invoice": "Invoice"
   },
   "prepared_for": "Prepared for",
   "date": "Date",
@@ -24,5 +25,21 @@
   "download_pdf": "Download PDF",
   "page": "{{n}} / {{total}}",
   "link_gone": "This link no longer works. Message us and we will send you a new one.",
-  "footer": "studiio.co"
+  "footer": "studiio.co",
+  "invoice": {
+    "billed_to": "Billed to",
+    "number": "Invoice no.",
+    "due": "Due",
+    "on_receipt": "On receipt",
+    "status": "Status",
+    "paid_status": "Paid",
+    "paid": "Paid",
+    "amount_due": "Amount due",
+    "how_to_pay": "How to pay",
+    "methods": "We accept {{payment_methods}}.",
+    "deposit": "Deposit ({{deposit_percent}})",
+    "final": "Final payment",
+    "monthly": "{{month}}",
+    "thanks": "Thank you."
+  }
 }

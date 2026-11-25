@@ -229,6 +229,25 @@ switch ("$method $action") {
     case 'GET crm-message-draft':
         respond(crm_message_draft($str('id'), $str('template'), $str('doc_id')));
 
+    case 'POST crm-invoice':
+        respond(crm_client_payload(crm_invoice_make($str('id'), $in, $user)));
+
+    case 'POST crm-invoice-delete':
+        respond(crm_client_payload(crm_invoice_delete($str('invoice_id'), $user)));
+
+    case 'GET crm-payments':
+        respond(crm_payments_view());
+
+    case 'GET crm-payments-csv':
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="studiio-payments-' . gmdate('Y-m-d') . '.csv"');
+        echo crm_payments_csv();
+        exit;
+
+    case 'POST crm-pay-details':
+        crm_pay_details_save($in['text'] ?? '');
+        respond(crm_payments_view());
+
     case 'POST crm-message-delete':
         respond(crm_client_payload(crm_message_delete($str('message_id'))));
 

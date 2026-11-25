@@ -551,6 +551,17 @@ input.item-note { min-height: 32px; padding: 5px 10px; font-size: 13px; }
 .form-sub { margin: 6px 0 -4px; font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .06em; }
 .form-sub .muted { text-transform: none; letter-spacing: 0; }
 .msg-text { white-space: pre-wrap; }
+.sub-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 2px; }
+.sub-head h3 { margin: 0; font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.months { display: grid; gap: 2px; }
+.card-head select { width: auto; min-height: 34px; padding: 5px 10px; font-size: 13px; }
+.month-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 110px 110px; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.month-row:first-child { border-top: 0; }
+.month-row small { display: block; font-size: 11px; color: var(--muted); }
+.bars { display: grid; gap: 3px; }
+.bar { display: block; height: 7px; border-radius: 4px; min-width: 2px; }
+.bar.in { background: var(--ink); }
+.bar.inv { background: var(--line-strong); }
 
 @media (max-width: 1100px) {
   .crm-grid { grid-template-columns: 1fr; }
@@ -567,6 +578,8 @@ input.item-note { min-height: 32px; padding: 5px 10px; font-size: 13px; }
   .activity li { grid-template-columns: 1fr; gap: 0; }
   .money b { font-size: 18px; }
   .doc-row { grid-template-columns: 1fr; }
+  .month-row { grid-template-columns: 1fr 1fr; }
+  .month-row .bars { grid-column: 1 / -1; grid-row: 2; }
   .doc-actions { justify-content: flex-start; }
   .link-row { grid-template-columns: 1fr auto; }
   .link-row input { grid-column: 1 / -1; }

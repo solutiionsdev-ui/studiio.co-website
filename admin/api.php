@@ -209,6 +209,26 @@ switch ("$method $action") {
     case 'POST crm-message':
         respond(crm_client_payload(crm_message_add($str('id'), $in, $user)));
 
+    case 'POST crm-doc-make':
+        respond(crm_client_payload(crm_doc_make($str('id'), $str('type'), $in, $user)));
+
+    case 'POST crm-intake-link':
+        respond(crm_client_payload(crm_intake_link($str('id'), $user)));
+
+    case 'POST crm-doc-status':
+        respond(crm_client_payload(crm_doc_status($str('doc_id'), $str('status'), $user)));
+
+    case 'GET crm-doc-pdf':
+        [$path, $name] = crm_doc_admin_pdf($str('id'));
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $name . '"');
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+        exit;
+
+    case 'GET crm-message-draft':
+        respond(crm_message_draft($str('id'), $str('template'), $str('doc_id')));
+
     case 'POST crm-message-delete':
         respond(crm_client_payload(crm_message_delete($str('message_id'))));
 

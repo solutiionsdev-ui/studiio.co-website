@@ -1,0 +1,221 @@
+{
+  "_help": "The intake questionnaire (spec 5.1), filled in by the client from a link on their phone. Each question: id (never rename once clients have answered), label, type (text, textarea, choice, multi), optional hint, options (for choice and multi), required, track (only shown for that track), other (adds an \"Other\" box), saves_to (also copies the answer onto the client or project: client.instagram, client.tiktok, client.website, client.channel, project.approver). The budget question uses terms.budget_ranges in settings.json and is skipped while that list is empty.",
+  "band": "Questionnaire",
+  "title": "A few questions before we start",
+  "intro": "This takes about five minutes. Your answers shape the proposal, so the more you tell us, the better it fits.",
+  "sections": [
+    {
+      "title": "About the business",
+      "questions": [
+        {
+          "id": "about",
+          "label": "Your business name and what you sell, in one or two sentences.",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "id": "ideal_customer",
+          "label": "Who is your ideal customer?",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "id": "instagram",
+          "label": "Instagram",
+          "type": "text",
+          "hint": "@yourbrand or a link",
+          "saves_to": "client.instagram"
+        },
+        {
+          "id": "tiktok",
+          "label": "TikTok",
+          "type": "text",
+          "hint": "@yourbrand or a link",
+          "saves_to": "client.tiktok"
+        },
+        {
+          "id": "website",
+          "label": "Website",
+          "type": "text",
+          "hint": "yourbrand.com",
+          "saves_to": "client.website"
+        },
+        {
+          "id": "competitors",
+          "label": "Who are your top two or three competitors?",
+          "type": "textarea"
+        }
+      ]
+    },
+    {
+      "title": "About this project",
+      "questions": [
+        {
+          "id": "need",
+          "label": "What do you need from us?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            "Monthly content",
+            "A one-off video or campaign",
+            "Photography",
+            "Not sure yet"
+          ]
+        },
+        {
+          "id": "goal",
+          "label": "What is the main goal?",
+          "type": "choice",
+          "required": true,
+          "other": true,
+          "options": [
+            "More sales",
+            "More followers and awareness",
+            "Launch something new",
+            "Upgrade how the brand looks"
+          ]
+        },
+        {
+          "id": "success",
+          "label": "What would make you say “this was worth it” three months from now?",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "label": "Is there a deadline or a launch date?",
+          "type": "text",
+          "hint": "A date, or “no deadline”"
+        },
+        {
+          "id": "usage",
+          "label": "Where will the content be used?",
+          "type": "multi",
+          "other": true,
+          "options": [
+            "Instagram",
+            "TikTok",
+            "Paid ads",
+            "Website",
+            "Print"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Taste and direction",
+      "questions": [
+        {
+          "id": "references",
+          "label": "Send three accounts or videos you love, and say what you like about each.",
+          "type": "textarea",
+          "required": true,
+          "hint": "Links are perfect."
+        },
+        {
+          "id": "no_go",
+          "label": "Is there anything you do not want?",
+          "type": "textarea",
+          "hint": "Styles, music, topics, people on camera"
+        },
+        {
+          "id": "brand_assets",
+          "label": "Do you have brand guidelines, a logo pack, fonts and colours?",
+          "type": "choice",
+          "options": [
+            "Yes, all of it",
+            "Some of it",
+            "Not yet"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Practical",
+      "questions": [
+        {
+          "id": "approver",
+          "label": "Who approves the work? One name only.",
+          "type": "text",
+          "required": true,
+          "saves_to": "project.approver"
+        },
+        {
+          "id": "location",
+          "label": "Where will we shoot, and are there days or hours we cannot shoot?",
+          "type": "textarea"
+        },
+        {
+          "id": "on_camera",
+          "label": "Who will be on camera? Are they comfortable with it?",
+          "type": "textarea"
+        },
+        {
+          "id": "budget",
+          "label": "What is your budget range?",
+          "type": "budget"
+        },
+        {
+          "id": "channel",
+          "label": "How do you prefer we talk?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            "WhatsApp",
+            "Email"
+          ],
+          "saves_to": "client.channel"
+        },
+        {
+          "id": "posting_now",
+          "label": "How often do you post now?",
+          "type": "text",
+          "track": "retainer"
+        },
+        {
+          "id": "who_posts",
+          "label": "Who posts and replies to comments today?",
+          "type": "text",
+          "track": "retainer"
+        },
+        {
+          "id": "script",
+          "label": "Do you already have a script or concept, or do you need us to write it?",
+          "type": "choice",
+          "track": "production",
+          "options": [
+            "We have a script or concept",
+            "We need you to write it",
+            "Not sure yet"
+          ]
+        },
+        {
+          "id": "count",
+          "label": "Roughly how many products, rooms or people?",
+          "type": "text",
+          "track": "photography"
+        },
+        {
+          "id": "retouching",
+          "label": "Do you need retouching?",
+          "type": "choice",
+          "track": "photography",
+          "options": [
+            "Yes",
+            "No",
+            "Not sure"
+          ]
+        }
+      ]
+    }
+  ],
+  "submit": "Send my answers",
+  "required_note": "Questions marked * need an answer.",
+  "other": "Other",
+  "thanks_title": "Thank you",
+  "thanks": "We have your answers. We will come back to you with the proposal soon.",
+  "change": "Change my answers",
+  "closed": "Thank you, we have your answers. If something changed, just message us.",
+  "missing": "Please answer: {{questions}}",
+  "too_many": "Too many attempts. Please wait a few minutes and try again."
+}

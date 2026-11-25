@@ -41,4 +41,10 @@ try {
     $report("$base/templates/en/checklist.json", [$e->getMessage()]);
 }
 
+// Documents and messages: every placeholder must be one the admin fills in, and every
+// {{#part}} must close. Checked with a sample client and project for each track.
+foreach (crm_template_errors() as $rel => $errors) {
+    $report("$base/templates/en/$rel", $errors);
+}
+
 exit($failed ? 1 : 0);

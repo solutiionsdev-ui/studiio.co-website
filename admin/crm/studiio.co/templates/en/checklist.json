@@ -1,29 +1,102 @@
 {
-  "_help": "The asset and access checklist the client gets at onboarding (spec 5.6). \"all\" goes to every client; the track lists are added on top. category: brand, access, logistics or legal. required: false means the item never blocks the project. Wording here is what the client reads.",
+  "_help": "The asset and access checklist the client gets at onboarding (spec 5.6). \"all\" goes to every client; the track lists are added on top. category: brand, access, logistics or legal. required: false means the item never blocks the project. Wording here is what the client reads. from_intake: the item is ticked automatically with the client's intake answer to that question.",
   "all": [
-    { "label": "Logo files (vector if you have them)", "category": "brand", "required": true },
-    { "label": "Brand colours and fonts, or your brand guidelines", "category": "brand", "required": true },
-    { "label": "Three accounts or videos you love, and what you like about each", "category": "brand", "required": true },
-    { "label": "Name and number of the one person who approves the work", "category": "logistics", "required": true },
-    { "label": "Location address, access times, parking and power notes", "category": "logistics", "required": true },
-    { "label": "Any no-go rules: people who cannot be filmed, areas off limits, competitor products (or \"none\")", "category": "legal", "required": true }
+    {
+      "label": "Logo files (vector if you have them)",
+      "category": "brand",
+      "required": true
+    },
+    {
+      "label": "Brand colours and fonts, or your brand guidelines",
+      "category": "brand",
+      "required": true
+    },
+    {
+      "label": "Three accounts or videos you love, and what you like about each",
+      "category": "brand",
+      "required": true,
+      "from_intake": "references"
+    },
+    {
+      "label": "Name and number of the one person who approves the work",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Location address, access times, parking and power notes",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Any no-go rules: people who cannot be filmed, areas off limits, competitor products (or \"none\")",
+      "category": "legal",
+      "required": true
+    }
   ],
   "retainer": [
-    { "label": "Instagram and TikTok access for Studiio: partner or collaborator access through Meta Business Suite, never a shared password", "category": "access", "required": true },
-    { "label": "Meta ad account access (only if ads are part of the work)", "category": "access", "required": false },
-    { "label": "Your products, services and price list", "category": "brand", "required": true },
-    { "label": "Calendar of launches, offers and events for the next two months", "category": "logistics", "required": true },
-    { "label": "Existing footage and photo library", "category": "brand", "required": false }
+    {
+      "label": "Instagram and TikTok access for Studiio: partner or collaborator access through Meta Business Suite, never a shared password",
+      "category": "access",
+      "required": true
+    },
+    {
+      "label": "Meta ad account access (only if ads are part of the work)",
+      "category": "access",
+      "required": false
+    },
+    {
+      "label": "Your products, services and price list",
+      "category": "brand",
+      "required": true
+    },
+    {
+      "label": "Calendar of launches, offers and events for the next two months",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Existing footage and photo library",
+      "category": "brand",
+      "required": false
+    }
   ],
   "production": [
-    { "label": "Approved script or concept, or confirmation that Studiio writes it", "category": "brand", "required": true },
-    { "label": "Product samples needed on set, with the date they arrive", "category": "logistics", "required": true },
-    { "label": "Names of the talent or staff on camera, and when they are available", "category": "logistics", "required": true },
-    { "label": "Music preferences or restrictions", "category": "brand", "required": false }
+    {
+      "label": "Approved script or concept, or confirmation that Studiio writes it",
+      "category": "brand",
+      "required": true
+    },
+    {
+      "label": "Product samples needed on set, with the date they arrive",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Names of the talent or staff on camera, and when they are available",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Music preferences or restrictions",
+      "category": "brand",
+      "required": false
+    }
   ],
   "photography": [
-    { "label": "Shot list, or the list of products, rooms or people", "category": "logistics", "required": true },
-    { "label": "Reference images for the style", "category": "brand", "required": true },
-    { "label": "Where the photos will be used (this sets the format and crop)", "category": "legal", "required": true }
+    {
+      "label": "Shot list, or the list of products, rooms or people",
+      "category": "logistics",
+      "required": true
+    },
+    {
+      "label": "Reference images for the style",
+      "category": "brand",
+      "required": true
+    },
+    {
+      "label": "Where the photos will be used (this sets the format and crop)",
+      "category": "legal",
+      "required": true
+    }
   ]
 }

@@ -1059,8 +1059,9 @@ async function crmClientPage(el, page, id) {
         </div>
         <div class="grid-2">
           <label class="field">Instagram<input name="instagram" type="text" value="${c.instagram}" placeholder="@handle"></label>
-          <label class="field">Website<input name="website" type="text" value="${c.website}"></label>
+          <label class="field">TikTok<input name="tiktok" type="text" value="${c.tiktok}" placeholder="@handle"></label>
         </div>
+        <label class="field">Website<input name="website" type="text" value="${c.website}"></label>
         <div class="field"><span>Preferred channel</span><div class="chips">${Object.entries(C.channels).map(([k, v]) => html`
           <label class="chip"><input type="radio" name="channel" value="${k}" ${k === c.channel ? 'checked' : ''}>${v}</label>`)}</div></div>
         <div class="grid-2">
@@ -1090,9 +1091,72 @@ async function crmClientPage(el, page, id) {
     });
   };
 
+  /** Write a message from a template, then open WhatsApp or email with it (and log it as sent). */
+  const composeModal = async ({ template = '', docId = '' } = {}) => {
+    const p = project();
+    const c = d.client;
+    const wa = waLink(c.phone);
+    const draft = async (key) => {
+      if (!key) return { subject: '', text: '' };
+      try { return await api('crm-message-draft', { params: { id: p.id, template: key, doc_id: docId } }); } catch (e) { showError(e); return { subject: '', text: '' }; }
+    };
+    let m = await draft(template);
+    const panel = openPanel(html`
+      <div class="drawer-head"><h2>${docId ? 'Send to the client' : 'Write a message'}</h2><button class="icon-btn" type="button" data-close aria-label="Close">✕</button></div>
+      <form class="crm-form" data-compose>
+        ${docId ? '' : html`<label class="field">Template<select name="template"><option value="">Choose…</option>${Object.entries(C.messageTemplates).map(([k, v]) => html`<option value="${k}" ${k === template ? 'selected' : ''}>${v}</option>`)}</select></label>`}
+        <label class="field">Message <span class="hint">Change anything before you send it.</span><textarea name="text" rows="9">${m.text}</textarea></label>
+        <p class="muted" style="margin:0">${wa ? 'WhatsApp' : 'Your email'} opens with this text ready; you press send there, and it’s logged here.${wa ? '' : ' (Add the phone number with its country code to send on WhatsApp.)'}</p>
+        <div class="crm-foot">
+          <button class="btn" type="button" data-copy-text>Copy</button>
+          ${c.email ? html`<button class="btn${wa ? '' : ' btn-primary'}" type="button" data-via="email">Email</button>` : ''}
+          ${wa ? html`<button class="btn btn-primary" type="button" data-via="whatsapp">WhatsApp</button>` : ''}
+        </div>
+      </form>`, { modal: true });
+    panel.el.classList.add('modal-sm');
+    const form = $('form', panel.el);
+    const key = () => (form.elements.template ? form.elements.template.value : template);
+    form.elements.template?.addEventListener('change', async () => { m = await draft(key()); form.elements.text.value = m.text; });
+    $('[data-copy-text]', form).addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(form.elements.text.value); toast('Copied.'); } catch (e) { toast('Copy didn’t work here; select the text and copy it.', 'warn'); }
+    });
+    form.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-via]');
+      if (!b) return;
+      const text = form.elements.text.value.trim();
+      if (!text) { toast('Write the message first.', 'warn'); return; }
+      const via = b.dataset.via;
+      const url = via === 'whatsapp' ? `${wa}?text=${encodeURIComponent(text)}`
+        : `mailto:${encodeURIComponent(c.email)}?subject=${encodeURIComponent(m.subject || '')}&body=${encodeURIComponent(text)}`;
+      const a = document.createElement('a');
+      a.href = url;
+      if (via === 'whatsapp') { a.target = '_blank'; a.rel = 'noopener'; }
+      a.click();
+      if (await call('crm-message', { id: p.id, direction: 'out', channel: via, summary: text, template: key(), doc_id: docId }, 'Logged as sent.')) panel.close();
+    });
+  };
+
+  const makeDoc = (type) => {
+    const p = project();
+    const label = C.makeTypes[type];
+    const exists = d.documents.some((x) => x.project_id === p.id && x.type === type && x.file);
+    const intro = exists ? `This makes version ${(d.documents.find((x) => x.project_id === p.id && x.type === type).version || 1) + 1}. The client’s link shows the new one.` : 'Made from your template with this client’s details.';
+    const extra = {
+      quotation: html`<label class="field">Notes <span class="hint">optional, printed under Notes</span><textarea name="notes" rows="2"></textarea></label>
+        <p class="muted" style="margin:0">One flat total: ${p.price ? usd(p.price) : 'set the price in Project details first'}.</p>`,
+      agreement: html`<p class="note warn" style="margin:0">This agreement is an operating template, not legal advice. Have a Lebanese lawyer review it once before it goes to clients.</p>`,
+      welcome_pack: html`<p class="muted" style="margin:0">Fill the planned dates in Project details first; anything empty says “to be confirmed”.</p>`,
+    }[type] || '';
+    formModal(`${exists ? 'Update' : 'Make'} the ${label.toLowerCase()}`, html`<p style="margin:0">${intro}</p>${extra}`, exists ? 'Make new version' : 'Make it',
+      async (data) => !!(await call('crm-doc-make', { id: p.id, type, ...data }, `${label} ready.`)));
+  };
+
   /* ---- pieces of the page ---- */
 
   const condAction = (g, r) => {
+    if (g.record === 'intake' && !r) {
+      return html`<span class="cond-btns"><button class="btn btn-sm btn-primary" type="button" data-goto="crm-intake">Intake link</button><button class="btn btn-sm" type="button" data-record="intake">Record…</button></span>`;
+    }
     if (C.records[g.record]) {
       return r ? html`<span class="cond-btns"><button class="btn btn-sm" type="button" data-record="${g.record}">Edit</button><button class="btn btn-sm" type="button" data-undo="${g.record}">Undo</button></span>`
         : html`<button class="btn btn-sm btn-primary" type="button" data-record="${g.record}">Record…</button>`;
@@ -1199,12 +1263,36 @@ async function crmClientPage(el, page, id) {
   };
 
   const documentsCard = (p) => {
-    const docs = d.documents.filter((x) => x.project_id === p.id);
-    return html`<section class="card"><h2>Documents</h2>
-      ${docs.length ? html`<div class="mini-rows">${docs.map((x) => html`<div class="mini-row docs">
-        <b>${C.docTypes[x.type] || x.type}</b><span class="status ${x.status}">${x.status === 'signed' && x.type === 'proposal' ? 'accepted' : x.status}</span>
-        <span class="mono">${fmtDay(x.completed_at || x.sent_at)}</span>${x.link ? html`<a href="${x.link}" target="_blank" rel="noopener">open</a>` : html`<span></span>`}</div>`)}</div>`
-        : html`<p class="muted" style="margin:0">Nothing yet. Recording the intake, proposal or agreement adds it here.</p>`}
+    const docs = d.documents.filter((x) => x.project_id === p.id && x.type !== 'intake');
+    const has = (k) => docs.some((x) => x.type === k && x.file);
+    return html`<section class="card" id="crm-docs"><h2>Documents</h2>
+      <div class="make-row">${Object.entries(C.makeTypes).map(([k, v]) => html`<button class="btn btn-sm" type="button" data-make="${k}">${has(k) ? 'Update' : 'Make'} ${v.toLowerCase()}</button>`)}</div>
+      ${docs.length ? html`<div class="mini-rows">${docs.map((x) => html`<div class="doc-row">
+        <div class="doc-main"><b>${C.docTypes[x.type] || x.type}</b>${x.version > 1 ? html` <span class="muted">v${x.version}</span>` : ''}${x.quote_no ? html` <span class="mono muted">${x.quote_no}</span>` : ''}
+          <span class="status ${x.status}">${x.status === 'signed' && x.type === 'proposal' ? 'accepted' : x.status === 'viewed' ? 'opened' : x.status}</span>
+          <div class="sub">${[x.generated_at ? `made ${fmtDate(x.generated_at)}` : '', x.sent_at ? `sent ${fmtDate(x.sent_at)}` : '', x.viewed_at ? `opened ${fmtDate(x.viewed_at)}` : '',
+            x.completed_at ? `done ${fmtDay(x.completed_at)}` : ''].filter(Boolean).join(' · ')}</div></div>
+        <div class="doc-actions">
+          ${x.file ? html`<a class="btn btn-sm" href="${API}?action=crm-doc-pdf&id=${x.id}" target="_blank" rel="noopener">PDF</a>` : ''}
+          ${x.link ? html`<a class="btn btn-sm" href="${x.link}&preview=1" target="_blank" rel="noopener">Page</a><button class="btn btn-sm" type="button" data-copy-link="${x.link}">Copy link</button>` : ''}
+          ${x.link && x.type !== 'kickoff_agenda' ? html`<button class="btn btn-sm btn-primary" type="button" data-send-doc="${x.id}" data-template="${x.type}_link">Send…</button>` : ''}
+          ${!x.file && x.link === '' && x.link !== undefined && !x.token ? html`<span class="muted">recorded by hand</span>` : ''}
+        </div></div>`)}</div>`
+        : html`<p class="muted" style="margin:10px 0 0">Made from your templates with this client’s details. Each one gets a PDF and a private page link for the client.</p>`}
+    </section>`;
+  };
+
+  const intakeCard = (p) => {
+    const doc = d.documents.find((x) => x.project_id === p.id && x.type === 'intake' && x.token);
+    const rows = p.intake_view || [];
+    return html`<section class="card" id="crm-intake"><div class="card-head"><h2>Intake questionnaire</h2>${doc ? html`<span class="status ${doc.status}">${doc.status === 'viewed' ? 'opened' : doc.status}</span>` : ''}</div>
+      ${!doc ? html`<p class="muted" style="margin:0 0 10px">A short form the client fills in on their phone. Their answers land here and complete the Intake stage.</p>
+        <button class="btn btn-sm btn-primary" type="button" data-intake-link>Make the link</button>`
+        : html`<div class="link-row"><input type="text" readonly value="${doc.link}" aria-label="Client link">
+          <button class="btn btn-sm" type="button" data-copy-link="${doc.link}">Copy</button>
+          <button class="btn btn-sm${rows.length ? '' : ' btn-primary'}" type="button" data-send-doc="${doc.id}" data-template="intake_link">Send…</button></div>`}
+      ${rows.length ? html`<p class="muted" style="margin:12px 0 4px">Answered ${fmtDate(p.intake.submitted_at)}</p>
+        <dl class="answers">${rows.map(([q, a]) => html`<dt>${q}</dt><dd>${a}</dd>`)}</dl>` : ''}
     </section>`;
   };
 
@@ -1227,6 +1315,7 @@ async function crmClientPage(el, page, id) {
         <dt>Phone</dt><dd>${c.phone || '—'}</dd>
         <dt>Email</dt><dd>${c.email ? html`<a href="mailto:${encodeURIComponent(c.email)}">${c.email}</a>` : '—'}</dd>
         ${ig ? html`<dt>Instagram</dt><dd><a href="https://instagram.com/${encodeURIComponent(ig)}" target="_blank" rel="noopener">@${ig}</a></dd>` : ''}
+        ${c.tiktok ? html`<dt>TikTok</dt><dd>${c.tiktok}</dd>` : ''}
         ${site ? html`<dt>Website</dt><dd><a href="${site}" target="_blank" rel="noopener">${c.website}</a></dd>` : ''}
         <dt>Prefers</dt><dd>${C.channels[c.channel] || c.channel}</dd>
         <dt>Source</dt><dd>${C.sources[c.source] || c.source}${c.referred_by ? ` · referred by ${c.referred_by}` : ''}</dd>
@@ -1253,6 +1342,17 @@ async function crmClientPage(el, page, id) {
         <label class="field">Revision rounds<input name="revision_rounds" type="number" min="0" max="20" value="${p.revision_rounds}"></label>
       </div>
       <label class="field">Payment schedule<input name="payment_schedule" type="text" value="${p.payment_schedule}"></label>
+      <label class="field">Approver <span class="hint">the one person who approves the work</span><input name="approver" type="text" value="${p.approver}"></label>
+      <p class="form-sub">Planned dates <span class="muted">(used in the proposal and welcome pack)</span></p>
+      <div class="grid-2">
+        <label class="field">Kickoff<input name="kickoff_date" type="date" value="${p.kickoff_date}"></label>
+        <label class="field">First draft<input name="draft_date" type="date" value="${p.draft_date}"></label>
+      </div>
+      <div class="grid-2">
+        <label class="field">Final delivery<input name="delivery_date" type="date" value="${p.delivery_date}"></label>
+        <span></span>
+      </div>
+      <label class="field">Delivery link <span class="hint">the final files, for the handover message</span><input name="delivery_link" type="url" placeholder="https://…" value="${p.delivery_link}"></label>
       <div class="crm-foot"><button class="btn btn-sm btn-primary" type="submit">Save details</button></div>
     </form></section>`;
 
@@ -1268,11 +1368,11 @@ async function crmClientPage(el, page, id) {
 
   const messagesCard = (p) => {
     const msgs = d.messages.filter((x) => x.project_id === p.id);
-    return html`<section class="card"><div class="card-head"><h2>Messages</h2><button class="btn btn-sm" type="button" data-msg>Log a message…</button></div>
+    return html`<section class="card"><div class="card-head"><h2>Messages</h2><span class="cond-btns"><button class="btn btn-sm" type="button" data-compose-new>Write…</button><button class="btn btn-sm" type="button" data-msg>Log…</button></span></div>
       ${msgs.length ? html`<div class="mini-rows">${msgs.map((x) => html`<div class="mini-row msgs">
-        <span class="mono">${fmtDay(x.date)}</span><span><b>${x.direction === 'out' ? 'We sent' : 'They sent'}</b> · ${C.messageChannels[x.channel] || x.channel}<br>${x.summary}</span>
+        <span class="mono">${fmtDay(x.date)}</span><span><b>${x.direction === 'out' ? 'We sent' : 'They sent'}</b> · ${C.messageChannels[x.channel] || x.channel}${x.template && C.messageTemplates[x.template] ? html` · <span class="muted">${C.messageTemplates[x.template]}</span>` : ''}<br><span class="msg-text">${x.summary}</span></span>
         <button class="icon-btn" type="button" data-del-msg="${x.id}" aria-label="Remove message">✕</button></div>`)}</div>`
-        : html`<p class="muted" style="margin:0">Messages you send and receive go here. Sending from the admin comes later.</p>`}
+        : html`<p class="muted" style="margin:0">Write one from your templates (it opens WhatsApp or email ready to send), or log one you sent yourself.</p>`}
     </section>`;
   };
 
@@ -1297,8 +1397,8 @@ async function crmClientPage(el, page, id) {
       <ol class="stages ${p.status !== 'open' ? 'is-closed' : ''}" aria-label="Stages">${C.stages.map((s, i) => html`
         <li class="${i < cur ? 'done' : i === cur ? 'now' : ''}" ${i === cur ? 'aria-current="step"' : ''}><span>${s.label}</span></li>`)}</ol>
       <div class="crm-grid">
-        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
-        <div class="crm-col">${clientCard()}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}${documentsCard(p)}</div>
+        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${documentsCard(p)}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
+        <div class="crm-col">${clientCard()}${intakeCard(p)}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}</div>
       </div>`);
     // On narrow screens the stage line scrolls sideways: keep the current stage in view.
     const line = $('.stages', el);
@@ -1339,6 +1439,14 @@ async function crmClientPage(el, page, id) {
     if ((b = hit('[data-del-item]'))) { if (confirm('Remove this checklist item?')) call('crm-checklist', { id: p.id, op: 'delete', item_id: b.dataset.delItem }, 'Item removed.'); return; }
     if ((b = hit('[data-del-shoot]'))) { if (confirm(`Remove the shoot on ${fmtDay(b.dataset.delShoot)}?`)) call('crm-shoot', { id: p.id, op: 'remove', date: b.dataset.delShoot }, 'Shoot removed.'); return; }
     if (hit('[data-msg]')) return messageModal();
+    if (hit('[data-compose-new]')) return composeModal();
+    if ((b = hit('[data-send-doc]'))) return composeModal({ template: b.dataset.template, docId: b.dataset.sendDoc });
+    if ((b = hit('[data-make]'))) return makeDoc(b.dataset.make);
+    if (hit('[data-intake-link]')) return call('crm-intake-link', { id: p.id }, 'Link ready. Send it to the client.');
+    if ((b = hit('[data-copy-link]'))) {
+      try { await navigator.clipboard.writeText(b.dataset.copyLink); toast('Link copied.'); } catch (e) { toast('Copy didn’t work here; select the link and copy it.', 'warn'); }
+      return;
+    }
     if ((b = hit('[data-del-msg]'))) { if (confirm('Remove this message from the log?')) call('crm-message-delete', { message_id: b.dataset.delMsg }, 'Message removed.'); return; }
     if (hit('[data-edit-client]')) return editClient();
     if (hit('[data-add-project]')) return addProjectModal();

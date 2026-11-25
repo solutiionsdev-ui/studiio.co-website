@@ -58,9 +58,17 @@ The **Pipeline** page follows every studiio.co client from the first message to 
 - **Client page**: the stage line, and what the current stage needs before the project can move on, with a button to record each step (qualified, intake received, proposal accepted, agreement signed, kickoff done, first draft delivered, approval, testimonial requested, check-in). Also the next action, project details, payments, the asset and access checklist (created from the track when the project reaches Onboarding), shoot dates, messages, documents and the activity log.
 - **Rules**: a project moves on only when its stage is done. Moving on anyway, skipping stages, booking a shoot before Kickoff or closing early asks for a reason, and the override is logged with the date and who did it. Every stage change is logged.
 
-Where things live: the records (clients, projects, checklist, documents, payments, messages, activity) in the private data folder under `crm/` (`.private/data/crm/` on this Mac, `studiio-private/data/crm/` on Hostinger), never in Git. Settings and client-facing wording in `admin/crm/studiio.co/`: `settings.json` holds the payment terms, revision rounds, timings and the other open decisions from the spec (keys still in its `unconfirmed` list are the spec's starting values), and `templates/en/checklist.json` is the checklist the client gets. After editing either, run `php admin/tools/check-crm.php`. Another business (studiio.ai, solutiions.dev) gets its own folder next to `studiio.co`.
+Where things live: the records (clients, projects, checklist, documents, payments, messages, activity) and the made PDFs in the private data folder under `crm/` (`.private/data/crm/` on this Mac, `studiio-private/data/crm/` on Hostinger), never in Git. Settings and all client-facing wording in `admin/crm/studiio.co/` (see its `README.md`: `settings.json`, and the templates for the checklist, intake, proposal, agreement, welcome pack, kickoff agenda, feedback rules, messages and labels). After editing any of them, run `php admin/tools/check-crm.php`. Another business (studiio.ai, solutiions.dev) gets its own folder next to `studiio.co`.
 
-Not built yet (spec phases 2 to 6): the intake questionnaire link, the proposal, agreement and welcome pack documents and the quotation generator, invoices and a payments view, drafted messages with one-click approval and n8n, the client portal, and monthly retainer cycles. For now each step is recorded by hand.
+**Documents and the intake questionnaire** (phase 2), on the client page:
+
+- **Intake questionnaire**: **Make the link**, then **Send…**. The client fills it in on their phone at `studiio.co/client/?t=…`; the answers appear on the client page, fill in Instagram, TikTok, website, preferred channel and approver, tick the "three accounts you love" checklist item, and complete the Intake stage.
+- **Documents**: make the proposal, quotation, agreement, welcome pack and kickoff agenda from the templates with the client's details. Each has a PDF (in the quotation's look: black band, STUDIIO logo, one flat total) and a private page link with a Download PDF button. **Send…** opens WhatsApp or your email with the message ready; you press send there, and it's logged and the document is marked sent, then opened when the client opens it.
+- **Messages → Write…**: any message from `messages.json` (kickoff recap, handover, testimonial, referral, check-in, renewal), filled in, editable, sent the same way.
+
+Nothing is sent automatically. PDFs are made by the admin itself (`lib/pdf.php`), so they work on this Mac and online. Client records on this Mac and online are separate: use studiio.co/admin for real clients, so their links point to studiio.co.
+
+Not built yet (spec phases 3 to 6): invoices and a payments view, drafted messages with one-click approval and n8n, the client portal (signing, uploads), and monthly retainer cycles.
 
 ### Reels (this Mac only)
 
@@ -122,6 +130,8 @@ admin/
   lib/claude.php     Ask Claude: local `claude -p` runner, GitHub Actions runner
   lib/leads.php      lead storage (used by contact.php too)
   lib/crm.php        Pipeline: clients, projects, stage checks, checklist, payments, messages, activity
+  lib/crm-docs.php   Pipeline documents: templates, proposal/quotation/agreement/welcome pack, intake form, messages
+  lib/pdf.php        small PDF writer (Helvetica, the STUDIIO logo from img/studiio-logo.svg), no libraries
   crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)
   lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)
   lib/reels-bridge.js  turns beats.json into effects inside the engine's overlay.html
@@ -131,5 +141,6 @@ admin/
   tools/check-content.php  validate content/*.json
   tools/check-crm.php      validate the Pipeline settings and templates
   dev/router.php     local dev server router
+client/              client links (studiio.co/client/?t=…): documents and the intake questionnaire
 .github/workflows/ask-claude.yml   Ask Claude online (Claude Code in GitHub Actions → pull request)
 ```

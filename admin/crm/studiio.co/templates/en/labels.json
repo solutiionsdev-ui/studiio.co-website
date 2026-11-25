@@ -1,0 +1,28 @@
+{
+  "_help": "Words on client-facing pages and PDFs that are not part of a template above.",
+  "documents": {
+    "proposal": "Proposal",
+    "quotation": "Quotation",
+    "agreement": "Service agreement",
+    "welcome_pack": "Welcome pack",
+    "kickoff_agenda": "Kickoff agenda"
+  },
+  "prepared_for": "Prepared for",
+  "date": "Date",
+  "project": "Project",
+  "version": "Version",
+  "quote_no": "Quote no.",
+  "issue_date": "Issue date",
+  "valid_until": "Valid until",
+  "description": "Description",
+  "amount": "Amount",
+  "total": "Total",
+  "per_month": "per month",
+  "payment_terms": "Payment terms",
+  "notes": "Notes",
+  "quote_note": "This quotation is valid until {{valid_until}}.",
+  "download_pdf": "Download PDF",
+  "page": "{{n}} / {{total}}",
+  "link_gone": "This link no longer works. Message us and we will send you a new one.",
+  "footer": "studiio.co"
+}

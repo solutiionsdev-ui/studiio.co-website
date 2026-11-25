@@ -1,0 +1,58 @@
+{
+  "_help": "Messages to clients (spec 5.9 and the links we send). Nothing is sent automatically: the admin fills these in, you can edit them, and you press send in WhatsApp or your email. Placeholders: see ../../README.md. subject is used for email.",
+  "intake_link": {
+    "label": "Intake questionnaire link",
+    "subject": "A few questions before we start",
+    "text": "Hi {{contact_first_name}}, thanks for your time! Before we put the proposal together, could you answer a few questions? It takes about five minutes on your phone: {{link}}"
+  },
+  "proposal_link": {
+    "label": "Proposal",
+    "subject": "Your proposal: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, here is our proposal for {{project_title}}: {{link}}\nHave a look and tell me if anything should change. When you are happy with it, a written OK here is all we need."
+  },
+  "quotation_link": {
+    "label": "Quotation",
+    "subject": "Quotation: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, here is the quotation for {{project_title}}: {{link}}"
+  },
+  "agreement_link": {
+    "label": "Agreement",
+    "subject": "Agreement: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, here is the agreement for {{project_title}}: {{link}}\nOnce it is signed and the deposit is in, we book the first shoot."
+  },
+  "welcome_pack_link": {
+    "label": "Welcome pack",
+    "subject": "Welcome to Studiio",
+    "text": "Welcome to Studiio, {{contact_first_name}}! Here is exactly how the next weeks will go: {{link}}"
+  },
+  "kickoff_recap": {
+    "label": "Kickoff recap",
+    "subject": "Kickoff recap: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, thanks for today. To recap:\nGoal: {{client_goal}}\nFirst shoot: {{first_shoot}}\nFirst draft: {{draft_date}}\nDelivery: {{delivery_date}}\nFeedback comes from {{approver}}, here on {{channel_label}}, within {{feedback_days}} working days per round, {{revision_rounds}} rounds per deliverable.\nThis message is our reference for the dates."
+  },
+  "handover": {
+    "label": "Handover (final files)",
+    "subject": "Your final files: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, your final files are ready: {{#delivery_link}}{{delivery_link}}{{/delivery_link}}{{^delivery_link}}[add the link]{{/delivery_link}}. Inside you will find {{deliverables_summary}}. The link stays active until {{link_expiry_date}}, so please download and back everything up. It was a pleasure working on this."
+  },
+  "testimonial": {
+    "label": "Feedback and testimonial (3 days after handover)",
+    "subject": "Two quick questions",
+    "text": "Hi {{contact_first_name}}, now that everything is delivered, two quick questions: what worked well, and what could we have done better? And if you are happy with the result, a few lines we can share would mean a lot."
+  },
+  "referral": {
+    "label": "Referral (after a positive reply)",
+    "subject": "Thank you",
+    "text": "Thank you. If you know another business owner who needs content like this, I would be glad if you introduced us."
+  },
+  "checkin": {
+    "label": "Check-in ({{checkin_days}} days after delivery)",
+    "subject": "Checking in",
+    "text": "Hi {{contact_first_name}}, checking in. How has the content been performing since we delivered? If you have something new coming up, I am happy to plan it with you."
+  },
+  "renewal": {
+    "label": "Retainer renewal summary",
+    "subject": "This month, and next",
+    "text": "Hi {{contact_first_name}}, a quick summary of this month.\nDelivered: [what we delivered]\nWhat performed best: [the best post and why]\nPlan for next month: [the plan]\nShall we go ahead?"
+  }
+}

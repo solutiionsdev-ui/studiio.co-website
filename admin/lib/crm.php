@@ -30,7 +30,7 @@ const CRM_STAGES = [
     'follow_up'     => 'Follow-up',
 ];
 const CRM_COLLECTIONS = ['clients', 'projects', 'checklist', 'documents', 'payments', 'messages', 'cycles', 'events'];
-const CRM_DOC_TYPES = ['intake' => 'Intake questionnaire', 'proposal' => 'Proposal', 'quotation' => 'Quotation', 'agreement' => 'Service agreement', 'invoice' => 'Invoice', 'welcome_pack' => 'Welcome pack', 'handover' => 'Handover'];
+const CRM_DOC_TYPES = ['intake' => 'Intake questionnaire', 'proposal' => 'Proposal', 'quotation' => 'Quotation', 'agreement' => 'Service agreement', 'invoice' => 'Invoice', 'welcome_pack' => 'Welcome pack', 'kickoff_agenda' => 'Kickoff agenda', 'handover' => 'Handover'];
 const CRM_DOC_STATUSES = ['draft', 'sent', 'viewed', 'completed', 'signed', 'paid'];
 const CRM_ITEM_STATUSES = ['waiting', 'received', 'not_needed'];
 const CRM_CATEGORIES = ['brand' => 'Brand', 'access' => 'Access', 'logistics' => 'Logistics', 'legal' => 'Legal'];
@@ -454,7 +454,7 @@ function crm_client_fields(array $in, array $base): array
 {
     $s = crm_settings();
     $out = $base;
-    foreach (['business_name' => 120, 'contact_name' => 120, 'role' => 80, 'instagram' => 80, 'website' => 200, 'referred_by' => 120] as $key => $max) {
+    foreach (['business_name' => 120, 'contact_name' => 120, 'role' => 80, 'instagram' => 80, 'tiktok' => 80, 'website' => 200, 'referred_by' => 120] as $key => $max) {
         if (array_key_exists($key, $in)) {
             $out[$key] = crm_text($in[$key], $max);
         }
@@ -500,7 +500,8 @@ function crm_new_project(array $client, string $track, string $title, string $by
         'price' => 0, 'currency' => $s['business']['currency'], 'payment_schedule' => $s['terms']['payment_schedule'][$track] ?? '',
         'revision_rounds' => $s['terms']['revision_rounds'],
         'next_action' => $s['next_actions']['lead'] ?? '', 'next_action_due' => '', 'blocked_by' => '',
-        'shoot_dates' => [], 'records' => [],
+        'shoot_dates' => [], 'records' => [], 'approver' => '', 'kickoff_date' => '', 'draft_date' => '', 'delivery_date' => '',
+        'delivery_link' => '', 'intake' => [],
         'created_at' => $now, 'created_by' => $by, 'updated_at' => $now,
     ];
 }
@@ -518,7 +519,7 @@ function crm_client_create(array $in, string $by): string
     $now = gmdate('c');
     $client = crm_client_fields($in + ['channel' => 'whatsapp', 'source' => array_key_first($s['sources'])], [
         'id' => crm_id(), 'business' => CRM_BUSINESS, 'business_name' => '', 'contact_name' => '', 'role' => '',
-        'phone' => '', 'email' => '', 'instagram' => '', 'website' => '', 'channel' => 'whatsapp', 'source' => '',
+        'phone' => '', 'email' => '', 'instagram' => '', 'tiktok' => '', 'website' => '', 'channel' => 'whatsapp', 'source' => '',
         'referred_by' => '', 'notes' => '', 'lead_id' => $leadId, 'created_at' => $now, 'created_by' => $by, 'updated_at' => $now,
     ]);
     return crm_tx(static function (array &$db) use ($client, $track, $title, $by, $leadId): string {
@@ -590,7 +591,7 @@ function crm_project_update(string $pid, array $in, string $by): string
         $i = crm_project_at($db, $pid);
         $p = $db['projects'][$i];
         $old = $p;
-        foreach (['title' => 160, 'payment_schedule' => 300, 'next_action' => 300] as $key => $max) {
+        foreach (['title' => 160, 'payment_schedule' => 300, 'next_action' => 300, 'approver' => 120] as $key => $max) {
             if (array_key_exists($key, $in)) {
                 $p[$key] = crm_text($in[$key], $max);
             }
@@ -603,13 +604,16 @@ function crm_project_update(string $pid, array $in, string $by): string
                 $p[$key] = crm_lines($in[$key]);
             }
         }
-        foreach (['start_date', 'end_date', 'next_action_due'] as $key) {
+        foreach (['start_date', 'end_date', 'next_action_due', 'kickoff_date', 'draft_date', 'delivery_date'] as $key) {
             if (array_key_exists($key, $in)) {
                 $p[$key] = crm_date($in[$key]);
             }
         }
         if (array_key_exists('price', $in)) {
             $p['price'] = crm_money($in['price']);
+        }
+        if (array_key_exists('delivery_link', $in)) {
+            $p['delivery_link'] = crm_link($in['delivery_link']);
         }
         if (array_key_exists('revision_rounds', $in)) {
             $n = filter_var($in['revision_rounds'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 20]]);
@@ -842,9 +846,14 @@ function crm_checklist_generate(array &$db, array $p): int
     $tpl = crm_checklist_template();
     $n = 0;
     foreach ([...$tpl['all'], ...($tpl[$p['track']] ?? [])] as $item) {
-        $db['checklist'][] = crm_checklist_row($p, $item['label'], $item['category'], $item['required']);
+        $row = crm_checklist_row($p, $item['label'], $item['category'], $item['required']);
+        if (is_string($item['from_intake'] ?? null)) {
+            $row['from_intake'] = $item['from_intake'];
+        }
+        $db['checklist'][] = $row;
         $n++;
     }
+    crm_intake_fill_checklist($db, $p);
     return $n;
 }
 
@@ -959,22 +968,39 @@ function crm_payment_delete(string $id, string $by): string
     });
 }
 
+/** Log a message. With a template (messages.json) and a document, the document is marked as sent. */
 function crm_message_add(string $pid, array $in, string $by): string
 {
     $direction = crm_pick($in['direction'] ?? '', ['out', 'in'], 'direction');
     $channel = crm_pick($in['channel'] ?? '', array_keys(CRM_MESSAGE_CHANNELS), 'channel');
-    $summary = crm_text($in['summary'] ?? '', 1000);
+    $summary = mb_substr(trim(str_replace("\r\n", "\n", is_string($in['summary'] ?? null) ? $in['summary'] : '')), 0, 2000);
     if ($summary === '') {
         throw new ApiError('Write a short summary of the message.');
     }
     $date = crm_date($in['date'] ?? '') ?: crm_today();
-    return crm_tx(static function (array &$db) use ($pid, $direction, $channel, $summary, $date, $by): string {
+    $template = crm_text($in['template'] ?? '', 40);
+    if ($template !== '' && !array_key_exists($template, crm_message_templates())) {
+        throw new ApiError('Unknown message template.');
+    }
+    $docId = crm_text($in['doc_id'] ?? '', 20);
+    return crm_tx(static function (array &$db) use ($pid, $direction, $channel, $summary, $date, $by, $template, $docId): string {
         $p = $db['projects'][crm_project_at($db, $pid)];
         $db['messages'][] = [
             'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid,
-            'direction' => $direction, 'channel' => $channel, 'template' => '', 'date' => $date, 'summary' => $summary,
-            'created_at' => gmdate('c'), 'created_by' => $by,
+            'direction' => $direction, 'channel' => $channel, 'template' => $template, 'doc_id' => $docId, 'date' => $date,
+            'summary' => $summary, 'created_at' => gmdate('c'), 'created_by' => $by,
         ];
+        if ($docId !== '') {
+            $k = crm_index($db['documents'], $docId);
+            if ($k === null || $db['documents'][$k]['project_id'] !== $pid) {
+                throw new ApiError('That document no longer exists.', 404);
+            }
+            if ($db['documents'][$k]['status'] === 'draft') {
+                $db['documents'][$k]['status'] = 'sent';
+                $db['documents'][$k]['sent_at'] = gmdate('c');
+            }
+            crm_log($db, $p, $by, 'document', crm_doc_title($db['documents'][$k]['type']) . ' sent (' . CRM_MESSAGE_CHANNELS[$channel] . ')');
+        }
         return $p['client_id'];
     });
 }
@@ -1015,6 +1041,8 @@ function crm_public_settings(): array
         'categories' => CRM_CATEGORIES,
         'docTypes' => CRM_DOC_TYPES,
         'records' => array_map(static fn($r) => $r['label'], CRM_RECORDS),
+        'makeTypes' => array_combine(CRM_MAKE_TYPES, array_map('crm_doc_title', CRM_MAKE_TYPES)),
+        'messageTemplates' => crm_message_templates(),
         'unconfirmed' => array_values((array) ($s['unconfirmed'] ?? [])),
     ];
 }
@@ -1055,7 +1083,7 @@ function crm_client_payload(string $id): array
     }
     $client = $db['clients'][$i];
     $mine = static fn(string $col) => array_values(array_filter($db[$col], static fn($r) => ($r['client_id'] ?? '') === $id));
-    $projects = array_map(static fn($p) => $p + ['gate' => crm_gate($db, $p), 'paid' => crm_paid($db, $p['id'])], $mine('projects'));
+    $projects = array_map(static fn($p) => $p + ['gate' => crm_gate($db, $p), 'paid' => crm_paid($db, $p['id']), 'intake_view' => crm_intake_view($p)], $mine('projects'));
     usort($projects, static fn($a, $b) => [$a['status'] !== 'open', $b['created_at']] <=> [$b['status'] !== 'open', $a['created_at']]);
     // Newest first. Rows are stored oldest first, so reverse before the (stable) sort keeps
     // the right order for things logged within the same second.
@@ -1079,7 +1107,7 @@ function crm_client_payload(string $id): array
     }
     return [
         'client' => $client, 'lead' => $lead, 'projects' => $projects, 'checklist' => $mine('checklist'),
-        'documents' => $mine('documents'), 'payments' => $payments, 'messages' => $messages, 'events' => $events,
+        'documents' => array_map(static fn($d) => ['link' => $d['type'] === 'intake' || ($d['file'] ?? '') !== '' ? crm_doc_link($d) : ''] + $d, $mine('documents')), 'payments' => $payments, 'messages' => $messages, 'events' => $events,
         'cycles' => $mine('cycles'), 'settings' => crm_public_settings(),
     ];
 }
@@ -1114,3 +1142,43 @@ function crm_lead_links(): array
     }
     return $links;
 }
+
+/** Intake answer as text (used for the checklist and the documents). */
+function crm_answer(array $p, string $id): string
+{
+    $a = $p['intake']['answers'][$id] ?? '';
+    return is_array($a) ? implode(', ', $a) : (string) $a;
+}
+
+/** Tick checklist items that come from an intake answer (from_intake in the checklist template). */
+function crm_intake_fill_checklist(array &$db, array $p): void
+{
+    // Items made before the template said which answer fills them are matched by their wording.
+    $byLabel = [];
+    try {
+        foreach (crm_checklist_template() as $group => $items) {
+            foreach (is_array($items) && array_is_list($items) ? $items : [] as $tplItem) {
+                if (is_string($tplItem['from_intake'] ?? null)) {
+                    $byLabel[$tplItem['label']] = $tplItem['from_intake'];
+                }
+            }
+        }
+    } catch (ApiError $e) {
+        // template unreadable: only items that carry from_intake themselves are filled
+    }
+    foreach ($db['checklist'] as $n => $item) {
+        $from = (string) ($item['from_intake'] ?? $byLabel[$item['label']] ?? '');
+        if ($item['project_id'] !== $p['id'] || $from === '' || $item['status'] !== 'waiting') {
+            continue;
+        }
+        $answer = crm_answer($p, $from);
+        if ($answer !== '') {
+            $db['checklist'][$n]['status'] = 'received';
+            $db['checklist'][$n]['received_at'] = crm_today();
+            $db['checklist'][$n]['note'] = mb_substr('From the intake: ' . $answer, 0, 1000);
+        }
+    }
+}
+
+// Documents, client links and the intake questionnaire (phase 2).
+require_once __DIR__ . '/crm-docs.php';

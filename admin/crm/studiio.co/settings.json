@@ -1,5 +1,5 @@
 {
-  "_help": "Settings for the studiio.co client system (admin → Pipeline). Change a value here and the admin uses it straight away. Keys listed under \"unconfirmed\" are starting values from the onboarding spec that Mario has not confirmed yet; take a key out of that list once it is confirmed. Keep it valid JSON (double quotes, no trailing commas) and check it with: php admin/tools/check-crm.php",
+  "_help": "Settings for the studiio.co client system (admin → Pipeline). Change a value here and the admin uses it straight away. Mario confirmed the onboarding spec's defaults on 2026-11-25; keys still listed under \"unconfirmed\" have no value yet (budget_ranges: the intake form skips the budget question until it has ranges). Keep it valid JSON (double quotes, no trailing commas) and check it with: php admin/tools/check-crm.php",
   "business": {
     "key": "studiio.co",
     "name": "STUDIIO.CO",
@@ -27,6 +27,17 @@
     "website": "Website",
     "other": "Other"
   },
+  "contact": {
+    "person": "Mario",
+    "email": "info@studiio.co",
+    "phone": "+961 76 530 287",
+    "instagram": "@studiio.co",
+    "reply_hours": ""
+  },
+  "documents": {
+    "quote_valid_days": 30,
+    "intake_editable_until": "proposal"
+  },
   "terms": {
     "deposit_percent": 50,
     "payment_schedule": {
@@ -46,8 +57,15 @@
     "checkin_days_after_delivery": 60,
     "budget_ranges": [],
     "signing": "Typed name and date inside the client portal, with a PDF copy emailed to both sides",
-    "payment_methods": ["Cash", "Bank transfer", "Whish", "OMT"],
-    "client_languages": ["en"],
+    "payment_methods": [
+      "Cash",
+      "Bank transfer",
+      "Whish",
+      "OMT"
+    ],
+    "client_languages": [
+      "en"
+    ],
     "send_without_approval": []
   },
   "timing": {
@@ -70,22 +88,6 @@
     "follow_up": "Send the check-in and note the outcome"
   },
   "unconfirmed": [
-    "deposit_percent",
-    "payment_schedule",
-    "revision_rounds",
-    "client_feedback_working_days",
-    "studiio_reply_working_days",
-    "reschedule_notice_hours",
-    "retainer_minimum_months",
-    "retainer_notice_days",
-    "unused_visits_roll_over",
-    "raw_footage",
-    "delivery_link_days",
-    "checkin_days_after_delivery",
-    "budget_ranges",
-    "signing",
-    "payment_methods",
-    "client_languages",
-    "send_without_approval"
+    "budget_ranges"
   ]
 }

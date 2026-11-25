@@ -1091,6 +1091,8 @@ PAGES.pipeline = async (el, page) => {
         ? html`<span>${plural(daysIn(p.stage_entered_at), 'day')} in stage</span>` : html`<span class="status ${p.status}">${p.status}</span>`}</span>
       ${p.next_action && p.status === 'open' ? html`<span class="pcard-next${late(p) ? ' late' : ''}">${p.next_action}${p.next_action_due
         ? html` · <span class="mono">${late(p) ? 'overdue, ' : ''}${fmtDay(p.next_action_due)}</span>` : ''}</span>` : ''}
+      ${p.cycle ? html`<span class="pcard-cycle"><b>${p.cycle.month}</b> · ${{ '': 'plan to write', shared: 'plan shared', changes: 'plan changes asked', approved: 'plan approved' }[p.cycle.plan] || p.cycle.plan}
+        · ${p.cycle.visits}${p.cycle.allowance ? `/${p.cycle.allowance}` : ''} visits${p.cycle.delivered ? ' · delivered' : ''}${p.cycle.paid ? ' · paid' : ''}</span>` : ''}
       ${p.ready ? html`<span class="pcard-ready">Ready for the next stage</span>` : ''}
     </a>`;
 
@@ -1543,6 +1545,50 @@ async function crmClientPage(el, page, id) {
     </section>`;
   };
 
+  const monthAfter = (ym) => { const [y, m] = ym.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; };
+  const monthLabel = (ym) => new Date(`${ym}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const cyclesCard = (p) => {
+    if (p.track !== 'retainer') return '';
+    const cycles = d.cycles.filter((c) => c.project_id === p.id).sort((a, b) => b.month.localeCompare(a.month));
+    const next = cycles.length ? monthAfter(cycles[0].month) : C.today.slice(0, 7);
+    const ends = p.retainer_ends ? p.retainer_ends.slice(0, 7) : '';
+    const allowance = +p.visits_per_month || 0;
+    const visits = (ym) => (p.shoot_dates || []).filter((x) => x.startsWith(ym));
+    const planState = (c) => ({ '': 'Not shared yet', shared: `Shared ${fmtDate(c.plan_shared_at)}: waiting for the client`, changes: 'The client asked for changes',
+      approved: c.plan_approved ? `Approved by ${c.plan_approved.name} on ${fmtDay(c.plan_approved.date)}` : 'Approved' }[c.plan_status] || c.plan_status);
+    const inv = (c) => d.documents.find((x) => x.id === c.invoice_id);
+    const box = (c) => html`<div class="cycle-box ${c.status}" data-cycle="${c.id}">
+      <div class="round-head"><div><b>${monthLabel(c.month)}</b> <span class="status ${c.status === 'open' ? 'sent' : 'done'}">${c.status === 'open' ? 'open' : 'closed'}</span>
+          <div class="sub">${visits(c.month).length}${allowance ? ` of ${allowance}` : ''} visits${visits(c.month).length ? ` (${visits(c.month).map(fmtDay).join(', ')})` : ''}${allowance && visits(c.month).length < allowance && c.status === 'closed' ? ` · ${allowance - visits(c.month).length} unused` : ''}
+            · ${c.delivered_at ? `delivered ${fmtDay(c.delivered_at)}` : 'not delivered yet'} · ${inv(c) ? html`<span class="mono">${inv(c).invoice_no}</span> ${inv(c).status}` : 'no invoice'}</div></div>
+        <span class="cond-btns">${c.status === 'open'
+          ? html`${c.delivered_at ? '' : html`<button class="btn btn-sm" type="button" data-cy="delivered">Mark delivered</button>`}<button class="btn btn-sm" type="button" data-cy="close">Close the month</button>`
+          : html`<button class="btn btn-sm" type="button" data-cy="reopen">Reopen</button>`}</span></div>
+      ${c.status === 'open' ? html`
+        <p class="form-sub">Content plan <span class="muted">· ${planState(c)}</span></p>
+        ${(c.plan_feedback || []).map((f) => html`<blockquote class="feedback-box"><p class="msg-text">${f.text}</p><span class="muted">${fmtDate(f.at)}</span></blockquote>`)}
+        <textarea data-plan rows="5" placeholder="The month’s content: ideas, posts and shoot days. One per line, - for a list." ${c.plan_status === 'approved' ? 'readonly' : ''}>${c.plan_text}</textarea>
+        <label class="field" style="margin-top:8px">Deliverables this month <span class="hint">one per line</span><textarea data-due rows="2">${(c.deliverables_due || []).join('\n')}</textarea></label>
+        <div class="crm-foot" style="margin-top:8px">
+          <button class="btn btn-sm" type="button" data-cy="save">Save</button>
+          ${c.plan_status === 'shared' ? html`<button class="btn btn-sm" type="button" data-cy="unshare">Take back</button>`
+            : c.plan_status !== 'approved' ? html`<button class="btn btn-sm btn-accent" type="button" data-cy="share">Share the plan with the client</button>` : ''}
+        </div>` : ''}
+    </div>`;
+    return html`<section class="card" id="crm-cycles"><div class="card-head"><h2>Monthly cycles</h2>
+        <span class="cond-btns">${!ends || next <= ends ? html`<button class="btn btn-sm" type="button" data-start-month="${next}">Start ${monthLabel(next)}</button>` : ''}</span></div>
+      <p class="muted" style="margin:0">Each month: the plan the client approves, the shoot visits${allowance ? ` (${allowance} a month${C.unusedRollOver ? '' : ', unused ones don’t roll over'})` : ''}, the deliverables and the invoice.
+        ${ends ? html`<b>The retainer ends ${fmtDay(p.retainer_ends)}.</b> <button class="btn btn-sm" type="button" data-retainer-continue>Keep it going</button>`
+          : html`<button class="btn btn-sm" type="button" data-retainer-end>End the retainer…</button>`}</p>
+      ${cycles.length ? cycles.map(box) : html`<p class="muted" style="margin:12px 0 0">The first month starts when the project reaches In production.</p>`}
+    </section>`;
+  };
+
+  const endRetainerModal = (p) => formModal('End the retainer', html`
+    <p style="margin:0">It runs to the end of the month you pick, at the earliest after the ${C.retainerNoticeDays} days’ notice and the ${C.retainerMinMonths}-month minimum. The last month is closed like any other, then the project moves to Offboarding.</p>
+    <label class="field">Last day (roughly)<input name="date" type="date" value="${C.today}" required></label>`,
+  'End it', async (data) => !!(await call('crm-retainer-end', { id: p.id, ...data }, 'Retainer end set.')));
+
   const filesCard = (p) => {
     const rounds = [...(p.rounds || [])].reverse();
     const media = (n) => d.media.filter((m) => m.project_id === p.id && +m.round === +n);
@@ -1653,6 +1699,7 @@ async function crmClientPage(el, page, id) {
         <label class="field">Revision rounds<input name="revision_rounds" type="number" min="0" max="20" value="${p.revision_rounds}"></label>
       </div>
       <label class="field">Payment schedule<input name="payment_schedule" type="text" value="${p.payment_schedule}"></label>
+      ${p.track === 'retainer' ? html`<label class="field">Shoot visits per month <span class="hint">0 = no set number</span><input name="visits_per_month" type="number" min="0" max="31" value="${p.visits_per_month || 0}"></label>` : ''}
       <label class="field">Approver <span class="hint">the one person who approves the work</span><input name="approver" type="text" value="${p.approver}"></label>
       <p class="form-sub">Planned dates <span class="muted">(used in the proposal and welcome pack)</span></p>
       <div class="grid-2">
@@ -1708,7 +1755,7 @@ async function crmClientPage(el, page, id) {
       <ol class="stages ${p.status !== 'open' ? 'is-closed' : ''}" aria-label="Stages">${C.stages.map((s, i) => html`
         <li class="${i < cur ? 'done' : i === cur ? 'now' : ''}" ${i === cur ? 'aria-current="step"' : ''}><span>${s.label}</span></li>`)}</ol>
       <div class="crm-grid">
-        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${filesCard(p)}${documentsCard(p)}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
+        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${cyclesCard(p)}${filesCard(p)}${documentsCard(p)}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
         <div class="crm-col">${clientCard()}${portalCard(p)}${intakeCard(p)}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}</div>
       </div>`);
     // On narrow screens the stage line scrolls sideways: keep the current stage in view.
@@ -1762,6 +1809,28 @@ async function crmClientPage(el, page, id) {
     if ((b = hit('[data-make]'))) return makeDoc(b.dataset.make);
     if (hit('[data-intake-link]')) return call('crm-intake-link', { id: p.id }, 'Link ready. Send it to the client.');
     if (hit('[data-portal-link]')) return call('crm-portal-link', { id: p.id }, 'Portal ready. Send the link to the client.');
+    if ((b = hit('[data-start-month]'))) return call('crm-cycle-start', { id: p.id, month: b.dataset.startMonth }, `${monthLabel(b.dataset.startMonth)} started.`);
+    if (hit('[data-retainer-end]')) return endRetainerModal(p);
+    if (hit('[data-retainer-continue]')) { if (confirm('Cancel the end date? The retainer keeps going month after month.')) call('crm-retainer-continue', { id: p.id }, 'The retainer keeps going.'); return; }
+    if ((b = hit('[data-cy]'))) {
+      const box = b.closest('[data-cycle]');
+      const op = b.dataset.cy;
+      const body = { id: box.dataset.cycle, op };
+      if (op === 'save' || op === 'share') {
+        const plan = $('[data-plan]', box);
+        const due = $('[data-due]', box);
+        if (op === 'share') {
+          const saved = await call('crm-cycle', { id: box.dataset.cycle, op: 'save', plan_text: plan.value, deliverables_due: due.value });
+          if (!saved) return;
+        } else Object.assign(body, { plan_text: plan.value, deliverables_due: due.value });
+      }
+      if (op === 'close' && !confirm('Close this month? Its plan and visits are final.')) return;
+      const r = await call('crm-cycle', body, { save: 'Saved.', share: 'Plan shared with the client.', unshare: 'Taken back.', delivered: 'Marked delivered.', close: 'Month closed.', reopen: 'Reopened.' }[op]);
+      const portal = r && op === 'share' && d.documents.find((x) => x.project_id === p.id && x.type === 'portal');
+      if (portal && confirm('Shared. Message the client that the plan is ready?')) composeModal({ template: 'plan_ready', docId: portal.id });
+      else if (r && op === 'share' && !portal) toast('Make the portal link (Client portal) so the client can see the plan.', 'warn');
+      return;
+    }
     if (hit('[data-share]')) {
       const r = await call('crm-round', { id: p.id, op: 'share' }, 'Shared with the client.');
       const portal = r && d.documents.find((x) => x.project_id === p.id && x.type === 'portal');

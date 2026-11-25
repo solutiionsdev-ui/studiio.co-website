@@ -646,6 +646,13 @@ function crm_project_update(string $pid, array $in, string $by): string
         if (array_key_exists('blocked_by', $in)) {
             $p['blocked_by'] = crm_pick($in['blocked_by'], CRM_BLOCKERS, 'blocker');
         }
+        if (array_key_exists('visits_per_month', $in)) {
+            $v = $in['visits_per_month'] === '' || $in['visits_per_month'] === null ? 0 : filter_var($in['visits_per_month'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 31]]);
+            if ($v === false) {
+                throw new ApiError('Visits per month must be a whole number from 0 to 31.');
+            }
+            $p['visits_per_month'] = $v;
+        }
         if (array_key_exists('downloads', $in)) {
             $p['downloads'] = crm_pick($in['downloads'], ['', 'open', 'closed'], 'download setting');
         }
@@ -717,6 +724,10 @@ function crm_move_in(array &$db, string $pid, string $to, string $reason, string
         crm_log($db, $p, $by, 'override', "$text (override; not done: " . implode('; ', $unmet) . ')', $reason);
     } else {
         crm_log($db, $p, $by, 'stage', $text, $reason);
+    }
+    if ($to === 'in_production' && $p['track'] === 'retainer' && crm_auto_on('retainer_cycle')) { // a retainer's first month
+        $start = (string) ($p['start_date'] ?? '');
+        crm_cycle_start_in($db, $pid, substr($start !== '' && $start > crm_today() ? $start : crm_today(), 0, 7), $by);
     }
     if ($to === 'onboarding' && crm_checklist_generate($db, $p) > 0) {
         crm_log($db, $p, $by, 'checklist', 'Checklist created for the ' . crm_settings()['tracks'][$p['track']]['label'] . ' track');
@@ -1100,6 +1111,9 @@ function crm_public_settings(): array
         'docTypes' => CRM_DOC_TYPES,
         'records' => array_map(static fn($r) => $r['label'], CRM_RECORDS),
         'makeTypes' => array_combine(CRM_MAKE_TYPES, array_map('crm_doc_title', CRM_MAKE_TYPES)),
+        'retainerNoticeDays' => $s['terms']['retainer_notice_days'],
+        'retainerMinMonths' => $s['terms']['retainer_minimum_months'],
+        'unusedRollOver' => (bool) $s['terms']['unused_visits_roll_over'],
         'messageTemplates' => crm_message_templates(),
         'unconfirmed' => array_values((array) ($s['unconfirmed'] ?? [])),
     ];
@@ -1120,6 +1134,11 @@ function crm_board(): array
             'stage_entered_at' => $p['stage_entered_at'], 'status' => $p['status'], 'closed_at' => $p['closed_at'],
             'next_action' => $p['next_action'], 'next_action_due' => $p['next_action_due'], 'blocked_by' => $p['blocked_by'],
             'ready' => $p['status'] === 'open' && $gate && !in_array(false, array_column($gate, 'met'), true),
+            'cycle' => $p['track'] === 'retainer' && ($cy = crm_cycle_open($db, $p['id'])) ? [
+                'month' => crm_month_label($cy['month']), 'plan' => $cy['plan_status'], 'visits' => crm_cycle_visits($p, $cy['month']),
+                'allowance' => (int) ($p['visits_per_month'] ?? 0), 'delivered' => $cy['delivered_at'] !== '',
+                'paid' => $cy['invoice_id'] !== '' && ($db['documents'][crm_index($db['documents'], $cy['invoice_id']) ?? -1]['status'] ?? '') === 'paid',
+            ] : null,
             'updated_at' => $p['updated_at'],
         ];
     }
@@ -1248,3 +1267,4 @@ require_once __DIR__ . '/crm-docs.php';
 require_once __DIR__ . '/crm-pay.php';
 require_once __DIR__ . '/crm-portal.php';
 require_once __DIR__ . '/crm-auto.php';
+require_once __DIR__ . '/crm-cycles.php';

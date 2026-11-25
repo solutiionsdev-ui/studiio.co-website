@@ -97,7 +97,13 @@ Nothing is sent automatically. PDFs are made by the admin itself (`lib/pdf.php`)
 
 Until n8n is connected, **Approve and send** opens WhatsApp or your email on the device you're using, with the message ready, and logs it. The n8n address and key are kept privately in the data folder (`crm/automation.json`), never in Git.
 
-Not built yet (spec phase 6): monthly retainer cycles. Signed copies by email can be added as an n8n message once n8n sends email.
+**Retainer cycles** (phase 6):
+
+- For a retainer, stages 7 to 9 repeat every month. The **Monthly cycles** card (retainer projects) has one month each: the content plan (write it, **Share the plan with the client**; the client approves it by typing their name on the portal or asks for changes), the shoot visits used out of **Shoot visits per month** (Project details; unused ones don't roll over unless `unused_visits_roll_over` says so), the deliverables due, delivered (set when the client approves that month's files, or by hand), and the month's invoice. **Close the month** when it's done.
+- Each month starts by itself once the project is In production (and when it first gets there), with its invoice and a draft of the invoice message in Approvals. 10 days before the month ends, the renewal summary is drafted with what was delivered and the visits filled in; you add what performed best.
+- **End the retainer…** sets the last month: at the earliest after the notice period and the minimum term (settings). When that month is closed, the project moves to Offboarding.
+
+Signed copies by email can be added as an n8n message once n8n sends email.
 
 ### Reels (this Mac only)
 
@@ -163,6 +169,7 @@ admin/
   lib/crm-pay.php    Pipeline invoices and the Payments page
   lib/crm-portal.php the client portal: deliverables in rounds, client uploads, feedback, approval, signing
   lib/crm-auto.php   automation rules, the Approvals inbox, sending through n8n
+  lib/crm-cycles.php retainer months: plan, visits, deliverables, invoice, renewal, ending the retainer
   hooks.php          the address n8n calls (key in the X-Studiio-Key header): outbox, sent, failed, tick
   lib/pdf.php        small PDF writer (Helvetica, the STUDIIO logo from img/studiio-logo.svg), no libraries
   crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)

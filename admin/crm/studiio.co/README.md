@@ -51,3 +51,4 @@ Arabic later: add `templates/ar/` with the same files.
 | Terms (settings) | `revision_rounds`, `feedback_days`, `reply_days_text`, `reschedule_hours`, `retainer_min_months`, `retainer_notice_days`, `unused_visits_roll_over`, `raw_footage`, `raw_footage_lower`, `delivery_link_days`, `checkin_days`, `signing_lower` |
 | Studiio | `contact_person`, `contact_email`, `contact_phone`, `contact_instagram`, `reply_hours` |
 | Messages | `link` (the document, questionnaire or portal link being sent), `invoice_no`, `invoice_amount` (still due), `invoice_due`, `last_payment`, `round` (the latest shared round) |
+| Retainers | `month`, `next_month`, `delivered_summary` (what was delivered this month), `next_plan` (next month's plan, once written), `visits_used`, `visits_per_month` |

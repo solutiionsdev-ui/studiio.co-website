@@ -111,6 +111,10 @@ try {
                         $back(crm_portal_feedback($project['id'], (int) ($_POST['round'] ?? 0), (string) ($_POST['text'] ?? '')), '#review');
                     case 'approve':
                         $back(crm_portal_approve($project['id'], (int) ($_POST['round'] ?? 0), (string) ($_POST['name'] ?? '')), '#review');
+                    case 'plan':
+                        $do = (string) ($_POST['do'] ?? '');
+                        $back(crm_portal_plan($project['id'], (string) ($_POST['cycle'] ?? ''), $do === 'approve' ? 'approve' : 'changes',
+                            (string) ($do === 'approve' ? ($_POST['name'] ?? '') : ($_POST['text'] ?? ''))), '#month');
                 }
                 client_gone();
             } catch (ApiError $e) {

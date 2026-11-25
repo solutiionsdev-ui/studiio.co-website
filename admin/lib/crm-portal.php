@@ -172,7 +172,9 @@ function crm_media_add(string $pid, string $uploadId, string $name, string $by):
         $rounds = (array) ($p['rounds'] ?? []);
         $last = $rounds ? $rounds[count($rounds) - 1] : null;
         if (!$last || $last['status'] !== 'draft') {
-            $rounds[] = ['n' => count($rounds) + 1, 'status' => 'draft', 'shared_at' => '', 'feedback' => [], 'approved' => null];
+            $rounds[] = ['n' => count($rounds) + 1, 'status' => 'draft', 'shared_at' => '', 'feedback' => [], 'approved' => null,
+                // a retainer's round belongs to the month it is made in
+                'cycle' => $p['track'] === 'retainer' ? (crm_cycle_open($db, $pid)['month'] ?? substr(crm_today(), 0, 7)) : ''];
         }
         $round = $rounds[count($rounds) - 1]['n'];
         $id = crm_id();
@@ -490,6 +492,10 @@ function crm_portal_approve(string $pid, int $round, string $name): string
         $db['projects'][$i] = $p;
         crm_log($db, $p, 'client', 'record', "Client approved round $round in writing ($name)");
         crm_invoice_auto_final($db, $p, 'client');
+        $ck = ($rounds[$k]['cycle'] ?? '') !== '' ? crm_cycle_at($db, $pid, $rounds[$k]['cycle']) : null;
+        if ($ck !== null && $db['cycles'][$ck]['delivered_at'] === '') { // a retainer month is delivered once its files are approved
+            $db['cycles'][$ck]['delivered_at'] = crm_today();
+        }
         return 'approved';
     });
 }
@@ -618,6 +624,39 @@ function crm_portal_html(array $db, array $portal, array $p, array $c, string $n
         $html .= '</ul></section>';
     }
 
+    // This month (retainers): the content plan to approve, and the shoot visits.
+    $cy = $p['track'] === 'retainer' ? (crm_cycle_open($db, $p['id']) ?? crm_cycle_latest($db, $p['id'])) : null;
+    if ($cy) {
+        $allow = (int) ($p['visits_per_month'] ?? 0);
+        $used = crm_cycle_visits($p, $cy['month']);
+        $html .= '<section class="block" id="month"><h2>' . $L('month_title', ['month' => crm_month_label($cy['month'])]) . '</h2>'
+            . '<p class="hint">' . ($allow > 0 ? $L('visits', ['used' => (string) $used, 'total' => (string) $allow]) : $L('visits_no_limit', ['used' => (string) $used]))
+            . (!crm_settings()['terms']['unused_visits_roll_over'] && $allow > 0 ? ' ' . $L('visits_note') : '') . '</p>';
+        if (in_array($cy['plan_status'], ['shared', 'changes', 'approved'], true)) {
+            $html .= '<div class="round"><h3>' . $L('plan') . '</h3><article class="doc plan">' . crm_blocks_html(crm_md_blocks($cy['plan_text'])) . '</article>';
+            foreach ((array) $cy['plan_feedback'] as $f) {
+                $html .= '<blockquote class="feedback"><p>' . nl2br(crm_h($f['text']), false) . '</p><cite>' . crm_h(crm_long_date(substr($f['at'], 0, 10))) . '</cite></blockquote>';
+            }
+            if ($cy['plan_status'] === 'approved' && $cy['plan_approved']) {
+                $html .= '<p class="notice">' . $L('plan_approved', ['name' => $cy['plan_approved']['name'], 'date' => crm_long_date($cy['plan_approved']['date'])]) . '</p>';
+            } elseif ($cy['plan_status'] === 'changes') {
+                $html .= '<p class="notice">' . $L('plan_changes_sent') . '</p>';
+            } elseif ($p['status'] === 'open') {
+                $cid = crm_h($cy['id']);
+                $html .= '<form method="post" action="' . $q . '#month" class="answer"><input type="hidden" name="action" value="plan"><input type="hidden" name="do" value="changes"><input type="hidden" name="cycle" value="' . $cid . '">'
+                    . '<label class="q"><span class="ql">' . $L('plan_changes_title') . '</span><textarea name="text" rows="4" maxlength="5000" required></textarea></label>'
+                    . '<button class="btn ghost" type="submit">' . $L('plan_changes_send') . '</button></form>'
+                    . '<form method="post" action="' . $q . '#month" class="answer"><input type="hidden" name="action" value="plan"><input type="hidden" name="do" value="approve"><input type="hidden" name="cycle" value="' . $cid . '">'
+                    . '<small>' . $L('plan_approve_hint') . '</small><input type="text" name="name" required maxlength="120" autocomplete="name" placeholder="' . $L('your_name') . '" aria-label="' . $L('your_name') . '">'
+                    . '<button class="btn" type="submit">' . $L('plan_approve_button') . '</button></form>';
+            }
+            $html .= '</div>';
+        } else {
+            $html .= '<p class="hint">' . $L('plan_waiting') . '</p>';
+        }
+        $html .= '</section>';
+    }
+
     // To review
     $rounds = array_values(array_filter((array) ($p['rounds'] ?? []), static fn($r) => $r['status'] !== 'draft'));
     $included = 1 + (int) ($p['revision_rounds'] ?? 2);
@@ -700,6 +739,8 @@ function crm_portal_notice(string $code): string
         'feedback' => crm_portal_label('feedback_sent'),
         'approved' => crm_portal_label('approved', ['name' => '', 'date' => '']),
         'signed' => (string) (crm_tpl_json('labels')['sign']['thanks_signed'] ?? ''),
+        'plan_approved' => crm_portal_label('approved_thanks'),
+        'plan_changes' => crm_portal_label('plan_changes_sent'),
         'accepted' => (string) (crm_tpl_json('labels')['sign']['thanks_accepted'] ?? ''),
     ];
     return $code === 'approved' ? crm_portal_label('approved_thanks') : ($map[$code] ?? '');

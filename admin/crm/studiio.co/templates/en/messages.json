@@ -50,6 +50,11 @@
     "subject": "Ready to review: {{project_title}}",
     "text": "Hi {{contact_first_name}}, round {{round}} is ready to review on your project page: {{link}}\nPlease send all your feedback in one message within {{feedback_days}} working days, or approve it there if you are happy."
   },
+  "plan_ready": {
+    "label": "Monthly plan ready",
+    "subject": "Content plan for {{month}}",
+    "text": "Hi {{contact_first_name}}, the content plan for {{month}} is ready on your project page: {{link}}\nApprove it there, or tell us what to change, and we book the shoots."
+  },
   "invoice_link": {
     "label": "Invoice",
     "subject": "Invoice {{invoice_no}}: {{project_title}}",
@@ -87,7 +92,7 @@
   },
   "renewal": {
     "label": "Retainer renewal summary",
-    "subject": "This month, and next",
-    "text": "Hi {{contact_first_name}}, a quick summary of this month.\nDelivered: [what we delivered]\nWhat performed best: [the best post and why]\nPlan for next month: [the plan]\nShall we go ahead?"
+    "subject": "{{month}}, and {{next_month}}",
+    "text": "Hi {{contact_first_name}}, a quick summary of {{month}}.\nDelivered: {{delivered_summary}}\nVisits: {{visits_used}}{{#visits_per_month}} of {{visits_per_month}}{{/visits_per_month}}\nWhat performed best: [the best post and why]\nPlan for {{next_month}}: {{#next_plan}}{{next_plan}}{{/next_plan}}{{^next_plan}}[the plan]{{/next_plan}}\nShall we go ahead?"
   }
 }

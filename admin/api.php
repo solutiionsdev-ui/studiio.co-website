@@ -294,6 +294,18 @@ switch ("$method $action") {
     case 'POST crm-n8n-test':
         respond(['result' => crm_n8n_test()]);
 
+    case 'POST crm-cycle-start':
+        respond(crm_client_payload(crm_cycle_start($str('id'), $str('month'), $user)));
+
+    case 'POST crm-cycle':
+        respond(crm_client_payload(crm_cycle_update($str('id'), $in, $user)));
+
+    case 'POST crm-retainer-end':
+        respond(crm_client_payload(crm_retainer_end($str('id'), $str('date'), $user)));
+
+    case 'POST crm-retainer-continue':
+        respond(crm_client_payload(crm_retainer_continue($str('id'), $user)));
+
     case 'POST crm-message-delete':
         respond(crm_client_payload(crm_message_delete($str('message_id'))));
 

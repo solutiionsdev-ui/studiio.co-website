@@ -31,6 +31,8 @@ const CRM_RULES = [
     'final_paid' => ['Final payment recorded → move to Delivered, draft the handover message', 'step'],
     'testimonial' => ['{{testimonial_days_after_handover}} days after the handover → draft the feedback and testimonial request', 'message'],
     'checkin' => ['{{checkin_days}} days after the handover → draft the check-in', 'message'],
+    'retainer_cycle' => ['Retainers: start each month’s cycle in production, make its invoice and draft the invoice message', 'step'],
+    'renewal' => ['Retainers: {{renewal_notice_days}} days before the month ends → draft the renewal summary', 'message'],
 ];
 
 /* --------------------------------------------------------------------------
@@ -447,6 +449,7 @@ function crm_auto_tick(): int
                 }
             }
         }
+        crm_cycles_tick($db); // retainers: this month's cycle, renewal summaries
         return count($db['outbox']) - $before;
     });
     crm_auto_save(['last_tick' => gmdate('c')]);

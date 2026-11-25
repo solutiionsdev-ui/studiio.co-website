@@ -311,6 +311,8 @@ function crm_doc_vars(array $db, array $p, array $c, array $extra = []): array
         })(),
     ];
     $vars['approver_or_one_person'] = $vars['approver'] !== '' ? $vars['approver'] : 'the person you name';
+    $vars += isset($db['cycles']) ? crm_cycle_vars($db, $p) // retainers: this month, next month, what was delivered…
+        : ['month' => '', 'next_month' => '', 'delivered_summary' => '', 'next_plan' => '', 'visits_used' => '', 'visits_per_month' => ''];
     return $extra + $vars;
 }
 
@@ -1196,7 +1198,7 @@ function crm_template_errors(): array
                 $errors[] = "{$type}_link is missing (the message that sends the " . str_replace('_', ' ', $type) . ').';
             }
         }
-        foreach (['portal_link', 'deliverables_ready'] as $key) {
+        foreach (['portal_link', 'deliverables_ready', 'plan_ready', 'renewal'] as $key) {
             if (!isset(crm_tpl_json('messages')[$key])) {
                 $errors[] = "$key is missing (a client portal message).";
             }
@@ -1258,7 +1260,8 @@ function crm_template_errors(): array
                 $errors[] = "invoice.$key (invoice wording) is missing.";
             }
         }
-        foreach (['hello', 'intro', 'where', 'need', 'documents', 'review', 'round', 'round_info', 'feedback_title', 'approve_title', 'approved', 'approved_thanks', 'download', 'errors', 'stages', 'dates'] as $key) {
+        foreach (['hello', 'intro', 'where', 'need', 'documents', 'review', 'round', 'round_info', 'feedback_title', 'approve_title', 'approved', 'approved_thanks', 'download', 'errors', 'stages', 'dates',
+            'month_title', 'plan', 'plan_approve_button', 'plan_approved', 'plan_changes_sent', 'plan_waiting', 'visits', 'visits_no_limit', 'visits_note'] as $key) {
             if (!isset($labels['portal'][$key])) {
                 $errors[] = "portal.$key (client portal wording) is missing.";
             }

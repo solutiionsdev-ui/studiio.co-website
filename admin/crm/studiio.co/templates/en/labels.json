@@ -107,7 +107,19 @@
       "failed": "Something went wrong. Please try again, or message us."
     },
     "approved_thanks": "Thank you! Your approval is noted, and we will take it from here.",
-    "add_more": "Add more"
+    "add_more": "Add more",
+    "month_title": "This month: {{month}}",
+    "plan": "Content plan",
+    "plan_changes_title": "Something to change?",
+    "plan_changes_send": "Send changes",
+    "plan_changes_sent": "Thank you, we have your notes on the plan and will send an updated one.",
+    "plan_approve_hint": "Type your name to approve the plan. Then we book the shoots.",
+    "plan_approve_button": "Approve the plan",
+    "plan_approved": "Plan approved by {{name}} on {{date}}.",
+    "plan_waiting": "We are preparing this month’s plan.",
+    "visits": "Shoot visits: {{used}} of {{total}} this month.",
+    "visits_no_limit": "Shoot visits this month: {{used}}.",
+    "visits_note": "Unused visits don’t roll over to the next month."
   },
   "sign": {
     "sign_title": "Sign the agreement",

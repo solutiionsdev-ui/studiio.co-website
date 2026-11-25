@@ -253,6 +253,8 @@ function crm_round(string $pid, string $op, string $by): string
             }
             $rounds[$k]['status'] = 'shared';
             $rounds[$k]['shared_at'] = gmdate('c');
+            // Spec 5.8 / section 6: the feedback timer starts now.
+            $rounds[$k]['feedback_due'] = crm_add_working_days(crm_today(), (int) crm_settings()['terms']['client_feedback_working_days']);
             $records = is_array($p['records'] ?? null) ? $p['records'] : [];
             if ((int) $r['n'] === 1 && empty($records['draft'])) {
                 $records['draft'] = ['date' => crm_today(), 'note' => 'Shared in the client portal', 'link' => '', 'by' => $by, 'at' => gmdate('c')];
@@ -406,6 +408,7 @@ function crm_portal_upload(string $pid, string $itemId, array $files): string
             $db['checklist'][$n]['received_at'] = crm_today();
         }
         crm_log($db, $p, 'client', 'checklist', 'Client sent ' . (count($list) === 1 ? 'a file' : count($list) . ' files') . " for “{$item['label']}”");
+        crm_auto_checklist_done($db, $pid);
         return 'uploaded';
     });
 }
@@ -429,6 +432,7 @@ function crm_portal_item_done(string $pid, string $itemId, string $note): string
             $db['checklist'][$n]['received_at'] = crm_today();
         }
         crm_log($db, $p, 'client', 'checklist', "Client marked “{$item['label']}” as sent" . ($note !== '' ? ": $note" : ''));
+        crm_auto_checklist_done($db, $pid);
         return 'item_done';
     });
 }
@@ -531,6 +535,7 @@ function crm_doc_sign(string $docId, string $name, bool $agree): string
         $p['updated_at'] = gmdate('c');
         $db['projects'][$i] = $p;
         crm_log($db, $p, 'client', 'record', ($what === 'agreement' ? 'Agreement signed' : 'Proposal accepted') . " by the client in the portal ($name)");
+        $what === 'agreement' ? crm_auto_agreement_ready($db, $p['id']) : crm_auto_proposal_accepted($db, $p['id']);
         return $what === 'agreement' ? 'signed' : 'accepted';
     });
 }

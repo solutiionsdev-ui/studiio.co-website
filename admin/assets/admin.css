@@ -574,6 +574,18 @@ input.item-note { min-height: 32px; padding: 5px 10px; font-size: 13px; }
 .upload-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .upload-chips .tag { text-decoration: none; }
 label.inline span { color: var(--muted); }
+.inbox-list { display: grid; gap: 12px; }
+.inbox-card { display: grid; gap: 10px; }
+.inbox-card textarea { min-height: 110px; }
+.inbox-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.inbox-head .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.notice-card { border-left: 3px solid var(--accent); }
+.inbox-settings summary { cursor: pointer; }
+.rule-list { display: grid; gap: 6px; }
+.rule { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.rule input { accent-color: var(--accent); margin-top: 3px; }
+.key-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+.key-row input { width: min(420px, 100%); min-height: 32px; padding: 5px 10px; font: 12px var(--f-mono); }
 .sub-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 2px; }
 .sub-head h3 { margin: 0; font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .months { display: grid; gap: 2px; }

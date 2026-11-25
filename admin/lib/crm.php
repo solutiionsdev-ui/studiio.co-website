@@ -29,7 +29,7 @@ const CRM_STAGES = [
     'offboarding'   => 'Offboarding',
     'follow_up'     => 'Follow-up',
 ];
-const CRM_COLLECTIONS = ['clients', 'projects', 'checklist', 'documents', 'payments', 'messages', 'cycles', 'events', 'media', 'uploads'];
+const CRM_COLLECTIONS = ['clients', 'projects', 'checklist', 'documents', 'payments', 'messages', 'cycles', 'events', 'media', 'uploads', 'outbox'];
 const CRM_DOC_TYPES = ['intake' => 'Intake questionnaire', 'proposal' => 'Proposal', 'quotation' => 'Quotation', 'agreement' => 'Service agreement', 'invoice' => 'Invoice', 'welcome_pack' => 'Welcome pack', 'kickoff_agenda' => 'Kickoff agenda', 'handover' => 'Handover'];
 const CRM_DOC_STATUSES = ['draft', 'sent', 'viewed', 'completed', 'signed', 'paid'];
 const CRM_ITEM_STATUSES = ['waiting', 'received', 'not_needed'];
@@ -674,50 +674,54 @@ function crm_project_update(string $pid, array $in, string $by): string
  */
 function crm_move(string $pid, string $to, string $reason, string $by): string
 {
+    return crm_tx(static fn(array &$db): string => crm_move_in($db, $pid, $to, $reason, $by));
+}
+
+/** crm_move() inside a transaction that is already open (used by the automation too). */
+function crm_move_in(array &$db, string $pid, string $to, string $reason, string $by): string
+{
     if (!isset(CRM_STAGES[$to])) {
         throw new ApiError('Unknown stage.');
     }
     $reason = crm_text($reason, 500);
-    return crm_tx(static function (array &$db) use ($pid, $to, $reason, $by): string {
-        $i = crm_project_at($db, $pid);
-        $p = $db['projects'][$i];
-        if ($p['status'] !== 'open') {
-            throw new ApiError('This project is closed. Reopen it first.');
+    $i = crm_project_at($db, $pid);
+    $p = $db['projects'][$i];
+    if ($p['status'] !== 'open') {
+        throw new ApiError('This project is closed. Reopen it first.');
+    }
+    $from = crm_stage_no($p['stage']);
+    $dest = crm_stage_no($to);
+    if ($from === $dest) {
+        throw new ApiError('The project is already in that stage.');
+    }
+    $unmet = [];
+    if ($dest > $from) {
+        $unmet = crm_unmet($db, $p);
+        if ($dest > $from + 1) {
+            $skipped = array_slice(array_values(CRM_STAGES), $from + 1, $dest - $from - 1);
+            $unmet[] = 'Skips ' . implode(', ', $skipped);
         }
-        $from = crm_stage_no($p['stage']);
-        $dest = crm_stage_no($to);
-        if ($from === $dest) {
-            throw new ApiError('The project is already in that stage.');
+        if ($unmet && $reason === '') {
+            throw new ApiError('Not ready for ' . CRM_STAGES[$to] . ': ' . implode('; ', $unmet) . '.', 409, ['needs_override' => true, 'unmet' => $unmet]);
         }
-        $unmet = [];
-        if ($dest > $from) {
-            $unmet = crm_unmet($db, $p);
-            if ($dest > $from + 1) {
-                $skipped = array_slice(array_values(CRM_STAGES), $from + 1, $dest - $from - 1);
-                $unmet[] = 'Skips ' . implode(', ', $skipped);
-            }
-            if ($unmet && $reason === '') {
-                throw new ApiError('Not ready for ' . CRM_STAGES[$to] . ': ' . implode('; ', $unmet) . '.', 409, ['needs_override' => true, 'unmet' => $unmet]);
-            }
-        }
-        $text = ($dest < $from ? 'Moved back from ' : 'Moved from ') . CRM_STAGES[$p['stage']] . ' to ' . CRM_STAGES[$to];
-        $p['stage'] = $to;
-        $p['stage_entered_at'] = gmdate('c');
-        $p['next_action'] = crm_settings()['next_actions'][$to] ?? '';
-        $p['next_action_due'] = '';
-        $p['blocked_by'] = '';
-        $p['updated_at'] = gmdate('c');
-        $db['projects'][$i] = $p;
-        if ($unmet) {
-            crm_log($db, $p, $by, 'override', "$text (override; not done: " . implode('; ', $unmet) . ')', $reason);
-        } else {
-            crm_log($db, $p, $by, 'stage', $text, $reason);
-        }
-        if ($to === 'onboarding' && crm_checklist_generate($db, $p) > 0) {
-            crm_log($db, $p, $by, 'checklist', 'Checklist created for the ' . crm_settings()['tracks'][$p['track']]['label'] . ' track');
-        }
-        return $p['client_id'];
-    });
+    }
+    $text = ($dest < $from ? 'Moved back from ' : 'Moved from ') . CRM_STAGES[$p['stage']] . ' to ' . CRM_STAGES[$to];
+    $p['stage'] = $to;
+    $p['stage_entered_at'] = gmdate('c');
+    $p['next_action'] = crm_settings()['next_actions'][$to] ?? '';
+    $p['next_action_due'] = '';
+    $p['blocked_by'] = '';
+    $p['updated_at'] = gmdate('c');
+    $db['projects'][$i] = $p;
+    if ($unmet) {
+        crm_log($db, $p, $by, 'override', "$text (override; not done: " . implode('; ', $unmet) . ')', $reason);
+    } else {
+        crm_log($db, $p, $by, 'stage', $text, $reason);
+    }
+    if ($to === 'onboarding' && crm_checklist_generate($db, $p) > 0) {
+        crm_log($db, $p, $by, 'checklist', 'Checklist created for the ' . crm_settings()['tracks'][$p['track']]['label'] . ' track');
+    }
+    return $p['client_id'];
 }
 
 /** Close a project as lost (any time) or done (from Follow-up, once the check-in is noted). */
@@ -815,6 +819,14 @@ function crm_record(string $pid, string $what, array $in, string $by): string
         crm_log($db, $p, $by, 'record', ($clear ? 'Undone: ' : '') . $def['label'] . (!$clear && $note !== '' ? " ($note)" : ''));
         if ($what === 'approved' && !$clear) {
             crm_invoice_auto_final($db, $p, $by);
+        }
+        if (!$clear) { // spec section 6: what recording this step sets off
+            match ($what) {
+                'qualified' => crm_auto_qualified($db, $pid),
+                'proposal' => crm_auto_proposal_accepted($db, $pid),
+                'agreement' => crm_auto_agreement_ready($db, $pid),
+                default => null,
+            };
         }
         return $p['client_id'];
     });
@@ -948,6 +960,7 @@ function crm_checklist(string $pid, array $in, string $by): string
                 }
                 break;
         }
+        crm_auto_checklist_done($db, $pid);
         return $p['client_id'];
     });
 }
@@ -984,6 +997,8 @@ function crm_payment_add(string $pid, array $in, string $by): string
         if ($invoiceId !== '') {
             crm_invoice_sync($db, $invoiceId);
         }
+        crm_auto_agreement_ready($db, $pid);
+        crm_auto_paid($db, $pid);
         return $p['client_id'];
     });
 }
@@ -1232,3 +1247,4 @@ function crm_intake_fill_checklist(array &$db, array $p): void
 require_once __DIR__ . '/crm-docs.php';
 require_once __DIR__ . '/crm-pay.php';
 require_once __DIR__ . '/crm-portal.php';
+require_once __DIR__ . '/crm-auto.php';

@@ -10,6 +10,11 @@
     "subject": "A few questions before we start",
     "text": "Hi {{contact_first_name}}, thanks for your time! Before we put the proposal together, could you answer a few questions? It takes about five minutes on your phone: {{link}}"
   },
+  "intake_reminder": {
+    "label": "Intake reminder",
+    "subject": "A quick reminder: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, a quick reminder about the short form for {{project_title}}. It takes about five minutes on your phone: {{link}}\nOnce we have it, we send you the proposal."
+  },
   "proposal_link": {
     "label": "Proposal",
     "subject": "Your proposal: {{project_title}}",
@@ -29,6 +34,16 @@
     "label": "Welcome pack",
     "subject": "Welcome to Studiio",
     "text": "Welcome to Studiio, {{contact_first_name}}! Here is exactly how the next weeks will go: {{link}}"
+  },
+  "checklist_reminder": {
+    "label": "Checklist reminder",
+    "subject": "What we still need: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, a quick reminder: we still need these by {{checklist_due}} to stay on schedule:\n{{checklist_open_list}}\nYou can upload them on your project page: {{link}}"
+  },
+  "feedback_reminder": {
+    "label": "Feedback reminder",
+    "subject": "Your feedback: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, a reminder that round {{round}} is waiting for your feedback or approval: {{link}}\nAs agreed, late feedback moves the delivery date by the same amount, so delivery is now {{delivery_date}}."
   },
   "deliverables_ready": {
     "label": "Files ready to review",

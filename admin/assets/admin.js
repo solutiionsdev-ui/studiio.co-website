@@ -203,6 +203,7 @@ const NAV = [
   ['copy', 'Copy (EN / AR)'],
   ['clients', 'Client logos'],
   ['label', 'Business'],
+  ['inbox', 'Approvals'],
   ['pipeline', 'Pipeline'],
   ['payments', 'Payments'],
   ['leads', 'Leads'],
@@ -284,6 +285,7 @@ async function refreshBadges() {
     const set = (id, n) => { const b = $(`[data-badge="${id}"]`); if (b) { b.textContent = n; b.hidden = !n; } };
     set('leads', d.newLeads);
     set('pipeline', d.crm?.overdue || 0);
+    set('inbox', d.crm?.inbox || 0);
     set('publish', d.changes?.items?.length || 0);
     set('claude', (d.tasks || []).filter((t) => t.status === 'running' || t.status === 'review').length);
   } catch (e) { /* badges are optional */ }
@@ -663,6 +665,113 @@ PAGES.clients = async (el, page) => {
     warnings(r.warnings);
     refreshBadges();
   };
+  render();
+};
+
+/* ---------- Approvals: messages the automation drafted (lib/crm-auto.php) ---------- */
+
+PAGES.inbox = async (el, page) => {
+  let v = await api('crm-inbox');
+  if (!page.alive()) return;
+  const C = (await api('crm-settings')).settings;
+  let showKey = false;
+  let settingsOpen = false; // stays open across redraws (each save redraws the page)
+  const STATUS = { sent: 'sent', approved: 'with n8n', dismissed: 'dismissed', done: 'done', failed: 'failed', pending: 'waiting' };
+  const go = (o) => `#/pipeline/${o.client_id}?p=${o.project_id}`;
+  const card = (o) => o.kind === 'notice' ? html`<article class="card inbox-card notice-card" data-id="${o.id}">
+      <div class="inbox-head"><div><b>${o.client}</b> <span class="muted">· ${o.project}</span><div class="sub">${fmtDate(o.created_at)}</div></div><span class="tag">note for you</span></div>
+      <p style="margin:8px 0 12px">${o.text}</p>
+      <div class="crm-foot"><a class="btn btn-sm" href="${go(o)}">Open client</a><button class="btn btn-sm btn-primary" type="button" data-done>Done</button></div>
+    </article>`
+    : html`<article class="card inbox-card" data-id="${o.id}">
+      <div class="inbox-head"><div><b>${o.client}</b> <span class="muted">· ${o.project}</span><div class="sub">${v.templates[o.template] || o.template} · ${fmtDate(o.created_at)}${o.why ? ` · ${o.why}` : ''}</div></div>
+        ${o.status === 'failed' ? html`<span class="flag">not sent</span>` : html`<span class="tag">draft</span>`}</div>
+      ${o.error ? html`<p class="note warn" style="margin:10px 0 0">${o.error}</p>` : ''}
+      <div class="inbox-to">
+        <label class="inline">Send by <select data-channel>
+          ${o.to_whatsapp ? html`<option value="whatsapp" ${o.channel === 'whatsapp' ? 'selected' : ''}>WhatsApp · +${o.to_whatsapp}</option>` : ''}
+          ${o.to_email ? html`<option value="email" ${o.channel === 'email' ? 'selected' : ''}>Email · ${o.to_email}</option>` : ''}
+          ${!o.to_whatsapp && !o.to_email ? html`<option value="">No phone or email: add them on the client page</option>` : ''}
+        </select></label></div>
+      <input type="text" data-subject value="${o.subject}" aria-label="Email subject" ${o.channel === 'email' ? '' : 'hidden'}>
+      <textarea data-text rows="5" aria-label="Message">${o.text}</textarea>
+      <div class="crm-foot"><a class="btn btn-sm" href="${go(o)}">Open client</a><button class="btn btn-sm" type="button" data-dismiss>Dismiss</button>
+        <button class="btn btn-sm btn-accent" type="button" data-approve>Approve and send</button></div>
+    </article>`;
+  const render = () => {
+    const n8n = v.n8n;
+    put(el, html`
+      <div class="page-head"><div><h1>Approvals</h1><p>Messages the system drafted for you, and notes about your clients. Nothing goes to a client until you approve it.</p></div>
+        <div class="head-actions"><button class="btn" type="button" data-tick>Check the rules now</button></div></div>
+      <p class="note ${n8n.connected ? '' : 'warn'}" style="margin:0 0 16px">${n8n.connected
+        ? 'Sending through n8n: approved messages go to n8n, which sends them on WhatsApp or by email and reports back.'
+        : 'n8n isn’t connected yet, so approving opens WhatsApp or your email on this device with the message ready. Connect n8n under Settings below.'}</p>
+      ${v.pending.length ? html`<div class="inbox-list">${v.pending.map(card)}</div>`
+        : html`<div class="empty">Nothing waiting. Drafts appear here when something happens: a lead is qualified, a reminder is due, a payment comes in.</div>`}
+      <section class="card section-gap"><h2>Recently</h2>
+        ${v.recent.length ? html`<table class="table"><thead><tr><th>When</th><th>Client</th><th>What</th><th>Status</th></tr></thead><tbody>
+          ${v.recent.map((o) => html`<tr data-href="${go(o)}" tabindex="0"><td><span class="mono">${fmtDate(o.sent_at || o.approved_at || o.created_at)}</span></td>
+            <td><b>${o.client}</b><div class="sub">${o.project}</div></td><td>${o.kind === 'notice' ? o.text : v.templates[o.template] || o.template}</td>
+            <td><span class="status ${o.status === 'approved' ? 'sent' : o.status}">${STATUS[o.status] || o.status}</span>${o.via === 'n8n' ? html`<div class="sub">by n8n</div>` : ''}</td></tr>`)}
+        </tbody></table>` : html`<p class="muted" style="margin:0">Nothing yet.</p>`}
+      </section>
+      <details class="card section-gap inbox-settings" ${settingsOpen ? 'open' : ''}><summary><h2 style="display:inline">Settings</h2></summary>
+        <h3 class="item-cat">Rules (spec section 6)</h3>
+        <div class="rule-list">${v.rules.map((r) => html`<label class="rule"><input type="checkbox" data-rule="${r.key}" ${r.on ? 'checked' : ''}><span>${r.label}</span></label>`)}</div>
+        <h3 class="item-cat">Send without approval</h3>
+        <p class="muted" style="margin:0 0 8px">${n8n.connected ? 'Ticked messages go straight to n8n, without waiting for you.' : 'Needs n8n. For now every message waits for your approval.'}</p>
+        <div class="rule-list">${Object.entries(v.templates).map(([k, label]) => html`<label class="rule"><input type="checkbox" data-auto="${k}" ${v.autoSend.includes(k) ? 'checked' : ''} ${n8n.connected ? '' : 'disabled'}><span>${label}</span></label>`)}</div>
+        <h3 class="item-cat">n8n</h3>
+        <form class="crm-form" data-n8n>
+          <label class="field">n8n webhook address <span class="hint">the Production URL of your n8n Webhook node</span><input type="url" name="webhook_url" value="${n8n.webhook_url}" placeholder="https://…/webhook/…"></label>
+          <div class="crm-foot"><button class="btn btn-sm btn-primary" type="submit">Save</button></div>
+        </form>
+        <div class="key-row">${n8n.key ? html`<input type="${showKey ? 'text' : 'password'}" readonly value="${n8n.key}" aria-label="n8n key">
+            <button class="btn btn-sm" type="button" data-show-key>${showKey ? 'Hide' : 'Show'}</button><button class="btn btn-sm" type="button" data-copy-key>Copy</button>` : html`<span class="muted">No key yet.</span>`}
+          <button class="btn btn-sm" type="button" data-new-key>${n8n.key ? 'Make a new key' : 'Make a key'}</button>
+          <button class="btn btn-sm" type="button" data-test ${n8n.webhook_url && n8n.key ? '' : 'disabled'}>Send a test</button></div>
+        <p class="muted" style="margin:10px 0 0">The admin sends each approved message to the webhook with the header <code>X-Studiio-Key</code>. n8n reports back to <code>${n8n.hooks}?action=sent</code> or <code>?action=failed</code> with <code>{"id": …}</code> and the same header. It can also read <code>?action=outbox</code>, or run the timed rules with <code>?action=tick</code>.${n8n.last_tick ? ` Rules last checked ${fmtDate(n8n.last_tick)}.` : ''}</p>
+      </details>`);
+  };
+  const save = async (body, msg) => { try { v = await api('crm-auto-settings', { method: 'POST', body }); if (msg) toast(msg); render(); refreshBadges(); } catch (e) { showError(e); } };
+  el.addEventListener('change', (e) => {
+    const t = e.target;
+    const art = t.closest('[data-id]');
+    if (t.matches('[data-channel]') && art) { $('[data-subject]', art).hidden = t.value !== 'email'; return; }
+    if (t.matches('[data-rule]')) return save({ rules: { [t.dataset.rule]: t.checked } }, t.checked ? 'Rule on.' : 'Rule off.');
+    if (t.matches('[data-auto]')) return save({ auto_send: $$('[data-auto]', el).filter((x) => x.checked).map((x) => x.dataset.auto) }, 'Saved.');
+  });
+  el.addEventListener('toggle', (e) => { if (e.target.matches('.inbox-settings')) settingsOpen = e.target.open; }, true);
+  el.addEventListener('submit', (e) => { if (e.target.matches('[data-n8n]')) { e.preventDefault(); save({ webhook_url: e.target.elements.webhook_url.value.trim() }, 'n8n address saved.'); } });
+  el.addEventListener('click', async (e) => {
+    const t = e.target;
+    const tr = t.closest('tr[data-href]');
+    if (tr) { location.hash = tr.dataset.href; return; }
+    const art = t.closest('[data-id]');
+    if (t.closest('[data-approve]') && art) {
+      const btn = t.closest('[data-approve]');
+      btn.disabled = true;
+      try {
+        const r = await api('crm-outbox-approve', { method: 'POST', body: { id: art.dataset.id, text: $('[data-text]', art).value, subject: $('[data-subject]', art).value, channel: $('[data-channel]', art).value } });
+        if (r.open) { const a = document.createElement('a'); a.href = r.open; if (r.open.startsWith('https:')) { a.target = '_blank'; a.rel = 'noopener'; } a.click(); toast('Opened with the message ready, and logged as sent.'); }
+        else toast(r.error ? `Approved, but n8n didn’t answer (${r.error}). It stays queued for n8n.` : 'Sent to n8n.', r.error ? 'warn' : 'ok');
+        v = r; render(); refreshBadges();
+      } catch (err) { showError(err); btn.disabled = false; }
+      return;
+    }
+    if ((t.closest('[data-dismiss]') || t.closest('[data-done]')) && art) {
+      try { v = await api('crm-outbox-dismiss', { method: 'POST', body: { id: art.dataset.id } }); render(); refreshBadges(); } catch (err) { showError(err); }
+      return;
+    }
+    if (t.closest('[data-tick]')) { try { v = await api('crm-auto-tick', { method: 'POST' }); toast(v.made ? `${plural(v.made, 'new draft')}.` : 'Nothing new.'); render(); refreshBadges(); } catch (err) { showError(err); } return; }
+    if (t.closest('[data-show-key]')) { showKey = !showKey; render(); return; }
+    if (t.closest('[data-copy-key]')) { try { await navigator.clipboard.writeText(v.n8n.key); toast('Key copied.'); } catch (err) { toast('Copy didn’t work here; show the key and copy it.', 'warn'); } return; }
+    if (t.closest('[data-new-key]')) {
+      if (v.n8n.key && !confirm('Make a new key? n8n stops working until you put the new key in it.')) return;
+      await save({ new_key: 1 }, 'New key made. Put it in n8n.'); return;
+    }
+    if (t.closest('[data-test]')) { try { const r = await api('crm-n8n-test', { method: 'POST' }); toast(r.result === 'ok' ? 'n8n answered.' : r.result, r.result === 'ok' ? 'ok' : 'warn'); } catch (err) { showError(err); } }
+  });
   render();
 };
 

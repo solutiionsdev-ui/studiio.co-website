@@ -86,6 +86,59 @@ input:focus, textarea:focus, .opt input:focus-visible + span { outline: 2px soli
 .done { padding: 24px 0 12px; }
 .done p { color: #444; }
 
+/* portal */
+.notice { background: var(--soft); padding: 12px 14px; border-radius: 8px; }
+.block { padding: 26px 0 6px; border-top: 1px solid var(--line); margin-top: 22px; }
+.block h2 { font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.progress { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.progress li { position: relative; padding: 6px 0 6px 26px; color: #aaa; font-size: 15px; }
+.progress li::before { content: ""; position: absolute; left: 4px; top: 12px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #ccc; background: #fff; }
+.progress li::after { content: ""; position: absolute; left: 9px; top: 24px; bottom: -6px; width: 2px; background: #e4e4e4; }
+.progress li:last-child::after { display: none; }
+.progress li.done { color: var(--ink); }
+.progress li.done::before { background: #000; border-color: #000; }
+.progress li.now { color: var(--ink); font-weight: 700; }
+.progress li.now::before { border-color: #000; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #000; }
+.dates { margin: 0; display: grid; gap: 6px; }
+.dates div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 6px 0; }
+.dates dt { color: var(--muted); }
+.dates dd { margin: 0; font-weight: 600; }
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.items .item { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.items .item.received, .items .item.not_needed { background: var(--soft); }
+.item-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.item-head em { color: var(--muted); font-style: normal; font-size: 13px; }
+.item-head .tick { flex: none; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.items .files { margin: 6px 0 0; font-size: 13px; color: var(--muted); word-break: break-word; }
+.item-form { display: grid; gap: 8px; margin-top: 10px; }
+.item-form input[type="file"] { font: 14px var(--f); max-width: 100%; }
+.items details { margin-top: 8px; }
+.items summary { cursor: pointer; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.progress li { padding: 3px 0 3px 26px; }
+.progress li::before { top: 9px; }
+.progress li::after { top: 21px; bottom: -3px; }
+.btn.small { min-height: 40px; padding: 0 18px; font-size: 14px; justify-self: start; }
+.docs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.docs a { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; text-decoration: none; font-weight: 600; }
+.docs em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--bad); text-align: right; }
+.round { margin-top: 18px; }
+.round h3 { margin: 0; font-size: 18px; }
+.media { display: grid; gap: 16px; margin-top: 10px; }
+.media figure { margin: 0; }
+.media video, .media img { display: block; width: 100%; max-height: 80vh; border-radius: 12px; background: #000; object-fit: contain; }
+.media .file-tile { display: grid; place-items: center; height: 120px; border-radius: 12px; background: var(--soft); font-weight: 700; }
+.media figcaption { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); padding-top: 6px; word-break: break-word; }
+.media figcaption a { flex: none; font-weight: 600; color: var(--ink); }
+.feedback { margin: 14px 0 0; padding: 12px 14px; border-left: 3px solid #000; background: var(--soft); border-radius: 0 8px 8px 0; }
+.feedback p { margin: 0 0 4px; }
+.feedback cite { font-style: normal; font-size: 12px; color: var(--muted); }
+.answer { display: grid; gap: 8px; margin-top: 18px; }
+.answer .ql { margin: 0; }
+.answer small { color: var(--muted); font-size: 14px; }
+.sign { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); display: grid; gap: 12px; }
+.sign h2 { margin: 0; font-size: 20px; }
+.sign form { display: grid; gap: 12px; }
+
 @media (min-width: 640px) {
   .band .wrap { min-height: 110px; }
   .logo { height: 17px; }

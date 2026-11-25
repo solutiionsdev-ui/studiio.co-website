@@ -29,7 +29,7 @@ const CRM_STAGES = [
     'offboarding'   => 'Offboarding',
     'follow_up'     => 'Follow-up',
 ];
-const CRM_COLLECTIONS = ['clients', 'projects', 'checklist', 'documents', 'payments', 'messages', 'cycles', 'events'];
+const CRM_COLLECTIONS = ['clients', 'projects', 'checklist', 'documents', 'payments', 'messages', 'cycles', 'events', 'media', 'uploads'];
 const CRM_DOC_TYPES = ['intake' => 'Intake questionnaire', 'proposal' => 'Proposal', 'quotation' => 'Quotation', 'agreement' => 'Service agreement', 'invoice' => 'Invoice', 'welcome_pack' => 'Welcome pack', 'kickoff_agenda' => 'Kickoff agenda', 'handover' => 'Handover'];
 const CRM_DOC_STATUSES = ['draft', 'sent', 'viewed', 'completed', 'signed', 'paid'];
 const CRM_ITEM_STATUSES = ['waiting', 'received', 'not_needed'];
@@ -565,6 +565,17 @@ function crm_client_delete(string $id): void
                 }
             }
         }
+        foreach ($db['projects'] as $p) { // their deliverables and the files they sent
+            if ($p['client_id'] === $id) {
+                foreach (['media', 'uploads'] as $kind) {
+                    $dir = data_path("crm/$kind/{$p['id']}/");
+                    foreach (glob($dir . '*') ?: [] as $f) {
+                        @unlink($f);
+                    }
+                    @rmdir($dir);
+                }
+            }
+        }
         $db['clients'] = array_values(array_filter($db['clients'], static fn($c) => $c['id'] !== $id));
         foreach (array_diff(CRM_COLLECTIONS, ['clients']) as $col) {
             $db[$col] = array_values(array_filter($db[$col], static fn($r) => ($r['client_id'] ?? '') !== $id));
@@ -634,6 +645,9 @@ function crm_project_update(string $pid, array $in, string $by): string
         }
         if (array_key_exists('blocked_by', $in)) {
             $p['blocked_by'] = crm_pick($in['blocked_by'], CRM_BLOCKERS, 'blocker');
+        }
+        if (array_key_exists('downloads', $in)) {
+            $p['downloads'] = crm_pick($in['downloads'], ['', 'open', 'closed'], 'download setting');
         }
         if ($p['title'] === '') {
             throw new ApiError('The project needs a title.');
@@ -1136,9 +1150,11 @@ function crm_client_payload(string $id): array
     }
     return [
         'client' => $client, 'lead' => $lead, 'projects' => $projects, 'checklist' => $mine('checklist'),
-        'documents' => array_map(static fn($d) => ['link' => $d['type'] === 'intake' || ($d['file'] ?? '') !== '' ? crm_doc_link($d) : '']
+        'documents' => array_map(static fn($d) => ['link' => in_array($d['type'], ['intake', 'portal'], true) || ($d['file'] ?? '') !== '' ? crm_doc_link($d) : '']
             + ($d['type'] === 'invoice' ? ['paid_amount' => crm_invoice_paid($db, $d['id'])] : []) + $d, $mine('documents')), 'payments' => $payments, 'messages' => $messages, 'events' => $events,
-        'cycles' => $mine('cycles'), 'settings' => crm_public_settings(),
+        'cycles' => $mine('cycles'), 'media' => $mine('media'), 'uploads' => $mine('uploads'), 'storage' => crm_storage($db),
+        'downloads' => array_combine(array_column($projects, 'id'), array_map(static fn($p) => crm_portal_downloads($db, $p), $projects)),
+        'settings' => crm_public_settings(),
     ];
 }
 
@@ -1215,3 +1231,4 @@ function crm_intake_fill_checklist(array &$db, array $p): void
 // Documents, client links and the intake questionnaire (phase 2), invoices and payments (phase 3).
 require_once __DIR__ . '/crm-docs.php';
 require_once __DIR__ . '/crm-pay.php';
+require_once __DIR__ . '/crm-portal.php';

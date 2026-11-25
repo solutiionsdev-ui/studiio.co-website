@@ -1,5 +1,5 @@
 {
-  "_help": "Settings for the studiio.co client system (admin → Pipeline). Change a value here and the admin uses it straight away. Mario confirmed the onboarding spec's defaults on 2026-11-25; keys still listed under \"unconfirmed\" have no value yet (budget_ranges: the intake form skips the budget question until it has ranges). Keep it valid JSON (double quotes, no trailing commas) and check it with: php admin/tools/check-crm.php documents.invoice_due_days: 0 means an invoice is due on receipt. Bank details for invoices are not kept here (this file is public on GitHub): type them on the admin Payments page, which stores them privately on the server.",
+  "_help": "Settings for the studiio.co client system (admin → Pipeline). Change a value here and the admin uses it straight away. Mario confirmed the onboarding spec's defaults on 2026-11-25; keys still listed under \"unconfirmed\" have no value yet (budget_ranges: the intake form skips the budget question until it has ranges). Keep it valid JSON (double quotes, no trailing commas) and check it with: php admin/tools/check-crm.php documents.invoice_due_days: 0 means an invoice is due on receipt. Bank details for invoices are not kept here (this file is public on GitHub): type them on the admin Payments page, which stores them privately on the server. portal.max_file_mb: the biggest deliverable you can upload. portal.client_upload_mb: the biggest file a client can upload to their checklist. portal.downloads: when clients can download their files: when_paid (once the project is fully paid) or always; downloads close delivery_link_days after delivery.",
   "business": {
     "key": "studiio.co",
     "name": "STUDIIO.CO",
@@ -39,6 +39,11 @@
     "intake_editable_until": "proposal",
     "invoice_prefix": "INV",
     "invoice_due_days": 0
+  },
+  "portal": {
+    "max_file_mb": 2048,
+    "client_upload_mb": 50,
+    "downloads": "when_paid"
   },
   "terms": {
     "deposit_percent": 50,

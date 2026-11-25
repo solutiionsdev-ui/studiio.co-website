@@ -1,5 +1,10 @@
 {
   "_help": "Messages to clients (spec 5.9 and the links we send). Nothing is sent automatically: the admin fills these in, you can edit them, and you press send in WhatsApp or your email. Placeholders: see ../../README.md. subject is used for email.",
+  "portal_link": {
+    "label": "Client portal link",
+    "subject": "Your project page: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, here is your project page: {{link}}\nEverything in one place: where we are, what we need from you, your documents, and the files to review. Keep this link, it stays the same."
+  },
   "intake_link": {
     "label": "Intake questionnaire link",
     "subject": "A few questions before we start",
@@ -24,6 +29,11 @@
     "label": "Welcome pack",
     "subject": "Welcome to Studiio",
     "text": "Welcome to Studiio, {{contact_first_name}}! Here is exactly how the next weeks will go: {{link}}"
+  },
+  "deliverables_ready": {
+    "label": "Files ready to review",
+    "subject": "Ready to review: {{project_title}}",
+    "text": "Hi {{contact_first_name}}, round {{round}} is ready to review on your project page: {{link}}\nPlease send all your feedback in one message within {{feedback_days}} working days, or approve it there if you are happy."
   },
   "invoice_link": {
     "label": "Invoice",

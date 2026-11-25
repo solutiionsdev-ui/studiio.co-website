@@ -75,7 +75,14 @@ Nothing is sent automatically. PDFs are made by the admin itself (`lib/pdf.php`)
 - **Record payment…** (or **Paid…** on an invoice) records a payment against an invoice; the invoice turns paid when it is covered and its PDF shows what was paid. The stage checks (deposit, final payment) follow the payments.
 - The **Payments** page: received this month and this year, outstanding invoices (overdue marked), projects not invoiced yet, totals per month, every payment (filter by month, **Export CSV**), and **How to pay**: the Whish number or bank details printed on invoices, kept privately in the data folder, never in Git.
 
-Not built yet (spec phases 4 to 6): drafted messages with one-click approval and n8n, the client portal (signing, uploads), and monthly retainer cycles.
+**Client portal** (phase 5, built before phase 4 at Mario's request):
+
+- **Client portal** card on the client page: **Make the portal link**, then **Send…**. The client's page (`studiio.co/client/?t=…`, no password, no scripts) shows where the project is and the coming dates, their documents (they **accept the proposal** and **sign the agreement** by typing their name; the PDF is stamped and the stage steps complete), the files to review, and the checklist (they upload files or tick items with a note).
+- **Files for the client**: upload finished videos and photos (in 4 MB pieces, any size up to `portal.max_file_mb`), then **Share with the client**. The client watches on their phone, sends one feedback message per round, or approves by typing their name (completes Review and drafts the final invoice). Uploading after feedback starts the next round; rounds beyond the included ones are marked extra.
+- **Downloads** open once the project is fully paid (`portal.downloads`) and close `delivery_link_days` after Delivered; you can open or close them by hand.
+- Files are stored privately on the server in the data folder (`crm/media/` deliverables, `crm/uploads/` what clients send), served only through the client's link or the signed-in admin, and deleted with the client. Check your Hostinger plan's disk space in hPanel.
+
+Not built yet (spec phases 4 and 6): drafted messages with one-click approval and n8n (including emailing signed copies), and monthly retainer cycles.
 
 ### Reels (this Mac only)
 
@@ -139,6 +146,7 @@ admin/
   lib/crm.php        Pipeline: clients, projects, stage checks, checklist, payments, messages, activity
   lib/crm-docs.php   Pipeline documents: templates, proposal/quotation/agreement/welcome pack, intake form, messages
   lib/crm-pay.php    Pipeline invoices and the Payments page
+  lib/crm-portal.php the client portal: deliverables in rounds, client uploads, feedback, approval, signing
   lib/pdf.php        small PDF writer (Helvetica, the STUDIIO logo from img/studiio-logo.svg), no libraries
   crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)
   lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)
@@ -149,6 +157,6 @@ admin/
   tools/check-content.php  validate content/*.json
   tools/check-crm.php      validate the Pipeline settings and templates
   dev/router.php     local dev server router
-client/              client links (studiio.co/client/?t=…): documents and the intake questionnaire
+client/              client links (studiio.co/client/?t=…): the portal, documents and the intake questionnaire
 .github/workflows/ask-claude.yml   Ask Claude online (Claude Code in GitHub Actions → pull request)
 ```

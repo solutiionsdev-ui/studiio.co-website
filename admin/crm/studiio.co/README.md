@@ -23,7 +23,7 @@ php admin/tools/check-crm.php
 | `templates/en/kickoff_agenda.md` | Kickoff agenda (for you, at the call) |
 | `templates/en/feedback_rules.md` | Feedback rules, included in the welcome pack and the agreement |
 | `templates/en/messages.json` | Messages: the links you send, kickoff recap, handover, testimonial, referral, check-in, renewal |
-| `templates/en/labels.json` | Other words on client pages and PDFs (document titles, "Prepared for", "Download PDF", and the invoice wording under `invoice`) |
+| `templates/en/labels.json` | Other words on client pages and PDFs: document titles, "Prepared for", "Download PDF", the invoice wording (`invoice`), the client portal (`portal`, including what the client sees for each stage) and signing (`sign`) |
 
 The quotation's and invoices' layout is built in (black band, one flat total, payment terms or how to pay, notes); their words come from `labels.json`. Your bank or Whish details are not here (this folder is public on GitHub): type them on the admin's Payments page.
 
@@ -50,4 +50,4 @@ Arabic later: add `templates/ar/` with the same files.
 | From the intake | `client_goal`, `success`, `deadline`, `usage`, `references`, `no_go`, `location`, `on_camera` |
 | Terms (settings) | `revision_rounds`, `feedback_days`, `reply_days_text`, `reschedule_hours`, `retainer_min_months`, `retainer_notice_days`, `unused_visits_roll_over`, `raw_footage`, `raw_footage_lower`, `delivery_link_days`, `checkin_days`, `signing_lower` |
 | Studiio | `contact_person`, `contact_email`, `contact_phone`, `contact_instagram`, `reply_hours` |
-| Messages | `link` (the document or questionnaire link being sent), `invoice_no`, `invoice_amount` (still due), `invoice_due`, `last_payment` |
+| Messages | `link` (the document, questionnaire or portal link being sent), `invoice_no`, `invoice_amount` (still due), `invoice_due`, `last_payment`, `round` (the latest shared round) |

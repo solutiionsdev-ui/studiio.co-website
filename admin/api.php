@@ -248,6 +248,30 @@ switch ("$method $action") {
         crm_pay_details_save($in['text'] ?? '');
         respond(crm_payments_view());
 
+    case 'POST crm-portal-link':
+        respond(crm_client_payload(crm_portal_link($str('id'), $user)));
+
+    case 'POST crm-media-upload':
+        respond(['size' => crm_media_chunk((string) ($_GET['id'] ?? ''), (int) ($_GET['offset'] ?? -1))]);
+
+    case 'POST crm-media-add':
+        respond(crm_client_payload(crm_media_add($str('id'), $str('upload_id'), $str('name'), $user)));
+
+    case 'POST crm-media-delete':
+        respond(crm_client_payload(crm_media_delete($str('media_id'), $user)));
+
+    case 'POST crm-round':
+        respond(crm_client_payload(crm_round($str('id'), $str('op'), $user)));
+
+    case 'GET crm-media-file':
+    case 'GET crm-upload-file':
+        $upload = $action === 'crm-upload-file';
+        [$path, $type, $name] = crm_admin_file($upload ? 'upload' : 'media', $str('id'));
+        if (!$upload && $str('v') === 'preview' && is_file(preg_replace('/\.[a-z0-9]+$/', '-preview.jpg', $path))) {
+            crm_send_file(preg_replace('/\.[a-z0-9]+$/', '-preview.jpg', $path), 'image/jpeg', $name, false);
+        }
+        crm_send_file($path, $type, $name, $upload || $str('dl') !== '');
+
     case 'POST crm-message-delete':
         respond(crm_client_payload(crm_message_delete($str('message_id'))));
 

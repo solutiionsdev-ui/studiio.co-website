@@ -292,7 +292,15 @@ function crm_doc_vars(array $db, array $p, array $c, array $extra = []): array
         'no_go' => crm_answer($p, 'no_go'),
         'location' => crm_answer($p, 'location'),
         'on_camera' => crm_answer($p, 'on_camera'),
-        'delivery_link' => (string) ($p['delivery_link'] ?? ''),
+        'delivery_link' => (string) (($p['delivery_link'] ?? '') ?: (static function () use ($db, $p): string {
+            foreach ($db['documents'] ?? [] as $d) { // the client portal holds the files when no other link is set
+                if ($d['project_id'] === $p['id'] && $d['type'] === 'portal') {
+                    return crm_doc_link($d);
+                }
+            }
+            return '';
+        })()),
+        'round' => (string) max([0, ...array_map(static fn($r) => $r['status'] !== 'draft' ? (int) $r['n'] : 0, (array) ($p['rounds'] ?? []))]),
         'link_expiry_date' => crm_long_date(date('Y-m-d', (int) strtotime($expiryBase . ' +' . (int) $t['delivery_link_days'] . ' days'))),
         'link' => '',
         'invoice_no' => '', 'invoice_amount' => '', 'invoice_due' => '',
@@ -848,7 +856,7 @@ function crm_page(string $title, string $bandTitle, string $body, array $contact
         . '</body></html>';
 }
 
-function crm_doc_html(array $snap, string $pdfUrl): string
+function crm_doc_html(array $snap, string $pdfUrl, string $after = '', string $notice = ''): string
 {
     $meta = '';
     foreach ($snap['meta'] as [$label, $value]) {
@@ -856,7 +864,9 @@ function crm_doc_html(array $snap, string $pdfUrl): string
     }
     $body = '<div class="doc-head"><div><p class="label">' . crm_h($snap['labels']['prepared_for']) . '</p><p class="who">' . crm_h($snap['prepared_for']) . '</p></div>'
         . '<dl class="meta">' . $meta . '</dl></div>'
+        . ($notice !== '' ? '<p class="notice" role="status">' . crm_h($notice) . '</p>' : '')
         . '<article class="doc doc-' . crm_h($snap['type']) . '">' . crm_blocks_html($snap['blocks']) . '</article>'
+        . $after
         . '<p class="actions"><a class="btn" href="' . crm_h($pdfUrl) . '">' . crm_h($snap['labels']['download']) . '</a></p>';
     return crm_page($snap['title'] . ' · ' . $snap['prepared_for'], $snap['title'], $body, $snap['contact']);
 }
@@ -1178,6 +1188,11 @@ function crm_template_errors(): array
                 $errors[] = "{$type}_link is missing (the message that sends the " . str_replace('_', ' ', $type) . ').';
             }
         }
+        foreach (['portal_link', 'deliverables_ready'] as $key) {
+            if (!isset(crm_tpl_json('messages')[$key])) {
+                $errors[] = "$key is missing (a client portal message).";
+            }
+        }
         if (!isset(crm_tpl_json('messages')['invoice_link'])) {
             $errors[] = 'invoice_link is missing (the message that sends an invoice).';
         }
@@ -1233,6 +1248,21 @@ function crm_template_errors(): array
         foreach (['billed_to', 'number', 'due', 'on_receipt', 'paid', 'amount_due', 'how_to_pay', 'methods', 'deposit', 'final', 'monthly'] as $key) {
             if (!is_string($labels['invoice'][$key] ?? null)) {
                 $errors[] = "invoice.$key (invoice wording) is missing.";
+            }
+        }
+        foreach (['hello', 'intro', 'where', 'need', 'documents', 'review', 'round', 'round_info', 'feedback_title', 'approve_title', 'approved', 'approved_thanks', 'download', 'errors', 'stages', 'dates'] as $key) {
+            if (!isset($labels['portal'][$key])) {
+                $errors[] = "portal.$key (client portal wording) is missing.";
+            }
+        }
+        foreach (array_keys(CRM_STAGES) as $stage) {
+            if (!is_string($labels['portal']['stages'][$stage] ?? null)) {
+                $errors[] = "portal.stages.$stage (what the client sees for that stage) is missing.";
+            }
+        }
+        foreach (['sign_title', 'accept_title', 'agree_sign', 'agree_accept', 'signed', 'accepted', 'thanks_signed', 'thanks_accepted'] as $key) {
+            if (!is_string($labels['sign'][$key] ?? null)) {
+                $errors[] = "sign.$key (signing wording) is missing.";
             }
         }
         foreach ([...CRM_MAKE_TYPES, 'invoice'] as $type) {

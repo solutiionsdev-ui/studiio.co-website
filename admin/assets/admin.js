@@ -851,6 +851,36 @@ const waLink = (phone) => {
   return digits.length >= 8 ? `https://wa.me/${digits}` : '';
 };
 
+/** Upload a big file in 4 MB pieces to a raw-body API action (resumes after a dropped piece). Resolves the upload id. */
+async function uploadInChunks(file, action, onProgress) {
+  const id = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const CHUNK = 4 * 1024 * 1024;
+  let offset = 0;
+  onProgress(0);
+  while (offset < file.size || (offset === 0 && file.size === 0)) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await fetch(`${API}?${new URLSearchParams({ action, id, offset })}`, {
+          method: 'POST', credentials: 'same-origin', body: file.slice(offset, offset + CHUNK),
+          headers: { 'X-CSRF-Token': S.csrf, 'Content-Type': 'application/octet-stream', Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => null);
+        if (res.status === 409 && data?.size != null) { offset = data.size; break; }
+        if (!res.ok) throw Object.assign(new Error(data?.error || `Upload failed (${res.status})`), { fatal: res.status < 500 });
+        offset = data.size;
+        break;
+      } catch (e) {
+        if (e.fatal || attempt >= 4) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
+    onProgress(file.size ? offset / file.size : 1);
+    if (file.size === 0) break;
+  }
+  return id;
+}
+const fileSize = (n) => (n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(1)} GB` : n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
 /** Small centred form. onSubmit(data, form) returns false to keep it open. */
 function formModal(title, fields, action, onSubmit, { onClose } = {}) {
   const panel = openPanel(html`
@@ -1331,6 +1361,7 @@ async function crmClientPage(el, page, id) {
               <span class="item-label">${it.label}</span>
               <span class="item-meta">${it.required ? '' : html`<span class="tag">optional</span>`}${it.received_at ? html`<span class="mono">received ${fmtDay(it.received_at)}</span>` : ''}${it.due_date && it.status === 'waiting'
                 ? html`<span class="mono${it.due_date < C.today ? ' late' : ''}">due ${fmtDay(it.due_date)}</span>` : ''}</span>
+              ${d.uploads.some((u) => u.item_id === it.id) ? html`<span class="upload-chips">${d.uploads.filter((u) => u.item_id === it.id).map((u) => html`<a class="tag" href="${API}?action=crm-upload-file&id=${u.id}">${u.name} · ${fileSize(u.size)}</a>`)}</span>` : ''}
               <input class="item-note" type="text" data-note="${it.id}" value="${it.note}" placeholder="Note or link" aria-label="Note">
             </div>
             <div class="crm-seg" role="group" aria-label="Status">${[['waiting', 'Waiting'], ['received', 'Received'], ['not_needed', 'Not needed']].map(([s, v]) => html`
@@ -1386,8 +1417,55 @@ async function crmClientPage(el, page, id) {
     </section>`;
   };
 
+  const portalCard = (p) => {
+    const doc = d.documents.find((x) => x.project_id === p.id && x.type === 'portal');
+    const [open, why] = d.downloads[p.id] || [false, ''];
+    const state = open ? (why ? `open until ${fmtDay(why)}` : 'open') : { unpaid: 'closed until fully paid', expired: 'closed (download period over)', closed: 'closed by you' }[why] || 'closed';
+    return html`<section class="card" id="crm-portal"><div class="card-head"><h2>Client portal</h2>${doc ? html`<span class="status ${doc.status}">${doc.status === 'viewed' ? 'opened' : doc.status}</span>` : ''}</div>
+      <p class="muted" style="margin:0 0 10px">The client’s own page: where the project is, the checklist (they upload there), documents to accept and sign, and the files to review.</p>
+      ${doc ? html`<div class="link-row"><input type="text" readonly value="${doc.link}" aria-label="Portal link">
+          <button class="btn btn-sm" type="button" data-copy-link="${doc.link}">Copy</button>
+          <button class="btn btn-sm btn-primary" type="button" data-send-doc="${doc.id}" data-template="portal_link">Send…</button></div>
+        <p style="margin:10px 0 0"><a class="btn btn-sm" href="${doc.link}&preview=1" target="_blank" rel="noopener">Open it as the client sees it</a></p>`
+        : html`<button class="btn btn-sm btn-primary" type="button" data-portal-link>Make the portal link</button>`}
+      <label class="inline" style="margin-top:12px">Downloads <select data-downloads>
+        ${[['', 'Automatic'], ['open', 'Open'], ['closed', 'Closed']].map(([k, v]) => html`<option value="${k}" ${(p.downloads || '') === k ? 'selected' : ''}>${v}</option>`)}</select>
+        <span>${state}</span></label>
+    </section>`;
+  };
+
+  const filesCard = (p) => {
+    const rounds = [...(p.rounds || [])].reverse();
+    const media = (n) => d.media.filter((m) => m.project_id === p.id && +m.round === +n);
+    const portal = d.documents.find((x) => x.project_id === p.id && x.type === 'portal');
+    const included = 1 + (+p.revision_rounds || 0);
+    const url = (m, extra = '') => `${API}?action=crm-media-file&id=${m.id}${extra}`;
+    const roundState = (r) => ({
+      draft: 'Not shared yet: only you see it',
+      shared: `Shared ${fmtDate(r.shared_at)}: waiting for the client`,
+      changes: 'The client sent feedback',
+      approved: r.approved ? `Approved by ${r.approved.name} on ${fmtDay(r.approved.date)}` : 'Approved',
+    }[r.status] || r.status);
+    return html`<section class="card" id="crm-files"><div class="card-head"><h2>Files for the client</h2>
+        <label class="btn btn-sm btn-primary upload-btn">Upload files…<input type="file" multiple accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp,image/gif,.pdf,.zip" data-files></label></div>
+      <p class="muted" style="margin:0">Finished videos and photos, shared in rounds. ${included} rounds included (the first draft and ${included - 1} of revisions). Stored privately on the server${d.storage?.used ? ` (${fileSize(d.storage.used)} used by all clients; your plan’s space is in hPanel)` : ''}.</p>
+      <div data-progress></div>
+      ${rounds.length ? rounds.map((r) => html`<div class="round-box ${r.status}">
+        <div class="round-head"><div><b>Round ${r.n}</b>${r.n > included ? html` <span class="flag us">extra round</span>` : ''}<div class="sub">${roundState(r)}</div></div>
+          <span class="cond-btns">${r.status === 'draft' ? html`<button class="btn btn-sm btn-accent" type="button" data-share>Share with the client</button>`
+            : r.status === 'shared' ? html`${portal ? html`<button class="btn btn-sm" type="button" data-send-doc="${portal.id}" data-template="deliverables_ready">Message…</button>` : ''}<button class="btn btn-sm" type="button" data-unshare>Take back</button>` : ''}</span></div>
+        ${(r.feedback || []).map((f) => html`<blockquote class="feedback-box"><p class="msg-text">${f.text}</p><span class="muted">${fmtDate(f.at)}</span></blockquote>`)}
+        <div class="file-grid">${media(r.n).map((m) => html`<div class="file-tile">
+          <a href="${url(m)}" target="_blank" rel="noopener" class="file-thumb">${m.kind === 'image' ? html`<img src="${url(m, m.preview ? '&v=preview' : '')}" alt="" loading="lazy">`
+            : m.kind === 'video' ? html`<video src="${url(m)}" preload="metadata" muted playsinline></video><span class="play">▶</span>` : html`<span class="ext">${m.ext.toUpperCase()}</span>`}</a>
+          <div class="file-meta"><span title="${m.name}">${m.name}</span><small>${fileSize(m.size)}</small></div>
+          <button class="icon-btn" type="button" data-del-media="${m.id}" aria-label="Delete ${m.name}">✕</button></div>`)}</div>
+      </div>`) : html`<p class="muted" style="margin:12px 0 0">Nothing uploaded yet. Upload the first draft, then share it: the client sees it on their portal page.</p>`}
+    </section>`;
+  };
+
   const documentsCard = (p) => {
-    const docs = d.documents.filter((x) => x.project_id === p.id && x.type !== 'intake' && x.type !== 'invoice');
+    const docs = d.documents.filter((x) => x.project_id === p.id && !['intake', 'invoice', 'portal'].includes(x.type));
     const has = (k) => docs.some((x) => x.type === k && x.file);
     return html`<section class="card" id="crm-docs"><h2>Documents</h2>
       <div class="make-row">${Object.entries(C.makeTypes).map(([k, v]) => html`<button class="btn btn-sm" type="button" data-make="${k}">${has(k) ? 'Update' : 'Make'} ${v.toLowerCase()}</button>`)}</div>
@@ -1395,7 +1473,7 @@ async function crmClientPage(el, page, id) {
         <div class="doc-main"><b>${C.docTypes[x.type] || x.type}</b>${x.version > 1 ? html` <span class="muted">v${x.version}</span>` : ''}${x.quote_no ? html` <span class="mono muted">${x.quote_no}</span>` : ''}
           <span class="status ${x.status}">${x.status === 'signed' && x.type === 'proposal' ? 'accepted' : x.status === 'viewed' ? 'opened' : x.status}</span>
           <div class="sub">${[x.generated_at ? `made ${fmtDate(x.generated_at)}` : '', x.sent_at ? `sent ${fmtDate(x.sent_at)}` : '', x.viewed_at ? `opened ${fmtDate(x.viewed_at)}` : '',
-            x.completed_at ? `done ${fmtDay(x.completed_at)}` : ''].filter(Boolean).join(' · ')}</div></div>
+            x.completed_at ? `done ${fmtDay(x.completed_at)}` : '', x.signature ? `${x.type === 'proposal' ? 'accepted' : 'signed'} by ${x.signature.name} in the portal` : ''].filter(Boolean).join(' · ')}</div></div>
         <div class="doc-actions">
           ${x.file ? html`<a class="btn btn-sm" href="${API}?action=crm-doc-pdf&id=${x.id}" target="_blank" rel="noopener">PDF</a>` : ''}
           ${x.link ? html`<a class="btn btn-sm" href="${x.link}&preview=1" target="_blank" rel="noopener">Page</a><button class="btn btn-sm" type="button" data-copy-link="${x.link}">Copy link</button>` : ''}
@@ -1521,8 +1599,8 @@ async function crmClientPage(el, page, id) {
       <ol class="stages ${p.status !== 'open' ? 'is-closed' : ''}" aria-label="Stages">${C.stages.map((s, i) => html`
         <li class="${i < cur ? 'done' : i === cur ? 'now' : ''}" ${i === cur ? 'aria-current="step"' : ''}><span>${s.label}</span></li>`)}</ol>
       <div class="crm-grid">
-        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${documentsCard(p)}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
-        <div class="crm-col">${clientCard()}${intakeCard(p)}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}</div>
+        <div class="crm-col">${gateCard(p)}${p.status === 'open' ? nextCard(p) : ''}${filesCard(p)}${documentsCard(p)}${checklistCard(p)}${paymentsCard(p)}${activityCard(p)}</div>
+        <div class="crm-col">${clientCard()}${portalCard(p)}${intakeCard(p)}${detailsCard(p)}${shootsCard(p)}${messagesCard(p)}</div>
       </div>`);
     // On narrow screens the stage line scrolls sideways: keep the current stage in view.
     const line = $('.stages', el);
@@ -1574,6 +1652,20 @@ async function crmClientPage(el, page, id) {
     if ((b = hit('[data-send-doc]'))) return composeModal({ template: b.dataset.template, docId: b.dataset.sendDoc });
     if ((b = hit('[data-make]'))) return makeDoc(b.dataset.make);
     if (hit('[data-intake-link]')) return call('crm-intake-link', { id: p.id }, 'Link ready. Send it to the client.');
+    if (hit('[data-portal-link]')) return call('crm-portal-link', { id: p.id }, 'Portal ready. Send the link to the client.');
+    if (hit('[data-share]')) {
+      const r = await call('crm-round', { id: p.id, op: 'share' }, 'Shared with the client.');
+      const portal = r && d.documents.find((x) => x.project_id === p.id && x.type === 'portal');
+      if (portal && confirm('Shared. Message the client that it is ready to review?')) composeModal({ template: 'deliverables_ready', docId: portal.id });
+      else if (r && !portal) toast('Make the portal link (Client portal) so the client can see it.', 'warn');
+      return;
+    }
+    if (hit('[data-unshare]')) { if (confirm('Take this round back? The client won’t see it until you share it again.')) call('crm-round', { id: p.id, op: 'unshare' }, 'Taken back.'); return; }
+    if ((b = hit('[data-del-media]'))) {
+      const m = d.media.find((x) => x.id === b.dataset.delMedia);
+      if (m && confirm(`Delete ${m.name} from the server? This can’t be undone.`)) call('crm-media-delete', { media_id: m.id }, 'File deleted.');
+      return;
+    }
     if ((b = hit('[data-copy-link]'))) {
       try { await navigator.clipboard.writeText(b.dataset.copyLink); toast('Link copied.'); } catch (e) { toast('Copy didn’t work here; select the link and copy it.', 'warn'); }
       return;
@@ -1582,9 +1674,34 @@ async function crmClientPage(el, page, id) {
     if (hit('[data-edit-client]')) return editClient();
     if (hit('[data-add-project]')) return addProjectModal();
   });
-  el.addEventListener('change', (e) => {
+  el.addEventListener('change', async (e) => {
     const t = e.target;
     const p = project();
+    if (t.matches('[data-files]') && t.files.length) {
+      const files = [...t.files];
+      t.value = '';
+      const box = () => $('[data-progress]', el); // the card is redrawn after each file, so look it up each time
+      for (const [i, f] of files.entries()) {
+        const line = html`<div class="progress-line"><span>${f.name} (${i + 1} of ${files.length}) · <b data-pct>0%</b></span><span class="bar-track"><span class="bar-fill" data-bar></span></span></div>`;
+        if (box()) put(box(), line);
+        try {
+          const id = await uploadInChunks(f, 'crm-media-upload', (x) => {
+            const pct = `${Math.round(x * 100)}%`;
+            const b = box();
+            if (!b) return;
+            if (!$('[data-bar]', b)) put(b, line);
+            $('[data-pct]', b).textContent = pct;
+            $('[data-bar]', b).style.width = pct;
+          });
+          if (!(await call('crm-media-add', { id: p.id, upload_id: id, name: f.name }))) break;
+        } catch (err) { showError(err); break; }
+      }
+      const done = $('[data-progress]', el);
+      if (done) done.replaceChildren();
+      toast(files.length === 1 ? 'File uploaded.' : 'Files uploaded.');
+      return;
+    }
+    if (t.matches('[data-downloads]')) { call('crm-project', { id: p.id, fields: { downloads: t.value } }, 'Downloads updated.'); return; }
     if (t.matches('[data-back]') && t.value) {
       const to = t.value;
       t.value = '';

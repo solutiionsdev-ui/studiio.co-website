@@ -1,9 +1,10 @@
 # STUDIIO.CO admin — server rules (Hostinger LiteSpeed / Apache).
-# The PHP in lib/, tools/ and dev/ is only ever included from disk; keep it off the web.
+# The PHP in lib/, tools/ and dev/ is only ever included from disk, and crm/ holds the client
+# system's settings and templates (read from disk); keep them all off the web.
 Options -Indexes
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^(lib|tools|dev)(/|$) - [R=404,L]
+  RewriteRule ^(lib|tools|dev|crm)(/|$) - [R=404,L]
   RewriteRule ^(config[^/]*\.php|README\.md)$ - [R=404,L]
 </IfModule>
 <IfModule mod_headers.c>

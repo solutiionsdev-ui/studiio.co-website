@@ -31,6 +31,7 @@ PHP 8.1+, no framework. See `admin/README.md` for setup, running locally and goi
 - `admin/api.php` JSON API · `admin/assets/admin.js` UI · `admin/lib/` logic (content rules, stores, leads, git publish, Ask Claude).
 - Private config, login hash, leads and task logs live in `.private/` locally or `studiio-private/` next to `public_html` on Hostinger. Never commit them; leads are personal data and the repo is public.
 - "Ask Claude" in the panel runs Claude Code headless with this file as context (locally: `claude -p` in this folder; online: `.github/workflows/ask-claude.yml`, which opens a pull request).
+- "Pipeline" is the client system (clients → projects → 11 stages, stage checks, checklist, payments, messages, activity): `admin/lib/crm.php`. Its records are personal data in the private data folder (`crm/*.json`); never commit them. Settings (terms, timings, open decisions) and all client-facing wording live in `admin/crm/studiio.co/` (`settings.json`, `templates/<lang>/*.json`), not in code; after editing them run `php admin/tools/check-crm.php`. Every record carries `business`, so another business is another folder under `admin/crm/`.
 - "Reels" (this Mac only) drives Reels Montage PRO in `~/reels-montage-pro`: `admin/lib/reels.php`, `admin/lib/reels-bridge.js` (effect renderers; keep its list in step with `REEL_EFFECTS` in `reels.php`), `admin/reels-file.php`. Never copy files from that package (bank, engine, template) into this repo: it is a paid, personal-use package and this repo is public.
 
 ## Run locally

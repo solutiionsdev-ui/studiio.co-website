@@ -82,7 +82,22 @@ Nothing is sent automatically. PDFs are made by the admin itself (`lib/pdf.php`)
 - **Downloads** open once the project is fully paid (`portal.downloads`) and close `delivery_link_days` after Delivered; you can open or close them by hand.
 - Files are stored privately on the server in the data folder (`crm/media/` deliverables, `crm/uploads/` what clients send), served only through the client's link or the signed-in admin, and deleted with the client. Check your Hostinger plan's disk space in hPanel.
 
-Not built yet (spec phases 4 and 6): drafted messages with one-click approval and n8n (including emailing signed copies), and monthly retainer cycles.
+**Automation and Approvals** (phase 4):
+
+- The rules of spec section 6 run by themselves: a qualified lead drafts the intake link; an intake not filled in after 3 days drafts one reminder, then flags it for you; an accepted proposal makes the agreement and the deposit invoice and drafts the agreement message; a signed agreement plus the deposit makes and drafts the welcome pack and moves the project to Onboarding; checklist items due in 2 days draft a reminder; a full checklist tells you to book the kickoff; sharing a round starts the feedback timer, and late feedback drafts a reminder and moves the delivery date; the final payment moves the project to Delivered and drafts the handover; 3 and 60 days after the handover draft the testimonial request and the check-in. Internal steps are logged as "automation".
+- **Approvals** (menu, with a badge): every drafted message waits there. Edit it, choose WhatsApp or email, then **Approve and send** or **Dismiss**. Nothing reaches a client before that, unless you tick a template under Settings → Send without approval (only with n8n). Sent messages go into the client's message log.
+- Timed rules run when the admin is opened (at most every 15 minutes), from **Check the rules now**, from n8n (`hooks.php?action=tick`) or from a cron job (`php admin/tools/tick.php`, for example hourly in hPanel → Advanced → Cron Jobs).
+
+**Connecting n8n** (Approvals → Settings): paste your n8n Webhook node's Production URL, press **Make a key**, then **Send a test**. In n8n:
+
+1. **Webhook** node, POST, with Header Auth: header name `X-Studiio-Key`, value the key. It receives `{"event": "send", "id", "channel" ("whatsapp" or "email"), "to": {"whatsapp" (digits with country code), "email", "name"}, "subject", "text", "callback": {"sent", "failed"}}` (and `{"event": "test"}` from the test button: just answer 200).
+2. Send it: by `channel`, your WhatsApp node or provider, or your email node.
+3. **HTTP Request** POST to `callback.sent` with the header `X-Studiio-Key` and the body `{"id": "<the id>"}`; on an error, to `callback.failed` with `{"id", "error"}`.
+4. Optional: a Schedule trigger (hourly) that POSTs to `…/admin/hooks.php?action=tick` with the same header.
+
+Until n8n is connected, **Approve and send** opens WhatsApp or your email on the device you're using, with the message ready, and logs it. The n8n address and key are kept privately in the data folder (`crm/automation.json`), never in Git.
+
+Not built yet (spec phase 6): monthly retainer cycles. Signed copies by email can be added as an n8n message once n8n sends email.
 
 ### Reels (this Mac only)
 
@@ -147,6 +162,8 @@ admin/
   lib/crm-docs.php   Pipeline documents: templates, proposal/quotation/agreement/welcome pack, intake form, messages
   lib/crm-pay.php    Pipeline invoices and the Payments page
   lib/crm-portal.php the client portal: deliverables in rounds, client uploads, feedback, approval, signing
+  lib/crm-auto.php   automation rules, the Approvals inbox, sending through n8n
+  hooks.php          the address n8n calls (key in the X-Studiio-Key header): outbox, sent, failed, tick
   lib/pdf.php        small PDF writer (Helvetica, the STUDIIO logo from img/studiio-logo.svg), no libraries
   crm/studiio.co/    Pipeline settings.json and client-facing templates/ (read from disk, blocked from the web)
   lib/reels.php      Reels: projects, beats.json, engine jobs, reel chat (this Mac only)
@@ -156,6 +173,7 @@ admin/
   tools/setup.php    create/update the private config
   tools/check-content.php  validate content/*.json
   tools/check-crm.php      validate the Pipeline settings and templates
+  tools/tick.php           run the timed automation rules (for a cron job)
   dev/router.php     local dev server router
 client/              client links (studiio.co/client/?t=…): the portal, documents and the intake questionnaire
 .github/workflows/ask-claude.yml   Ask Claude online (Claude Code in GitHub Actions → pull request)

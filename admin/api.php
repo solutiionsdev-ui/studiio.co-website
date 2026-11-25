@@ -84,7 +84,8 @@ switch ("$method $action") {
             'tasks'      => claude_runner() === 'off' ? [] : array_slice(tasks_list(5), 0, 3),
             'crm'        => (static function (): ?array {
                 try {
-                    return crm_overview();
+                    crm_auto_tick_maybe(); // the timed automation rules, at most every 15 minutes
+                    return crm_overview() + ['inbox' => crm_inbox_count()];
                 } catch (ApiError $e) {
                     return null;
                 }
@@ -271,6 +272,27 @@ switch ("$method $action") {
             crm_send_file(preg_replace('/\.[a-z0-9]+$/', '-preview.jpg', $path), 'image/jpeg', $name, false);
         }
         crm_send_file($path, $type, $name, $upload || $str('dl') !== '');
+
+    case 'GET crm-inbox':
+        respond(crm_inbox());
+
+    case 'POST crm-outbox-approve':
+        $r = crm_outbox_approve($str('id'), $in, $user);
+        respond(['open' => $r['open'], 'queued' => $r['queued'], 'error' => $r['error']] + crm_inbox());
+
+    case 'POST crm-outbox-dismiss':
+        crm_outbox_dismiss($str('id'), $user);
+        respond(crm_inbox());
+
+    case 'POST crm-auto-settings':
+        crm_auto_update($in);
+        respond(crm_inbox());
+
+    case 'POST crm-auto-tick':
+        respond(['made' => crm_auto_tick()] + crm_inbox());
+
+    case 'POST crm-n8n-test':
+        respond(['result' => crm_n8n_test()]);
 
     case 'POST crm-message-delete':
         respond(crm_client_payload(crm_message_delete($str('message_id'))));

@@ -392,72 +392,80 @@ function crm_doc_snapshot(array $db, array $p, array $c, string $type, array $in
 /** Make a document (or a new version of it). Returns the client id. */
 function crm_doc_make(string $pid, string $type, array $in, string $by): string
 {
+    return crm_tx(static fn(array &$db): string => crm_doc_make_in($db, $pid, $type, $in, $by));
+}
+
+/** crm_doc_make() inside a transaction that is already open (used by the automation too). */
+function crm_doc_make_in(array &$db, string $pid, string $type, array $in, string $by): string
+{
     $type = crm_pick($type, CRM_MAKE_TYPES, 'document');
-    return crm_tx(static function (array &$db) use ($pid, $type, $in, $by): string {
-        $p = $db['projects'][crm_project_at($db, $pid)];
-        $ci = crm_index($db['clients'], $p['client_id']);
-        $c = $db['clients'][$ci];
-        $n = null;
-        foreach ($db['documents'] as $k => $d) {
-            if ($d['project_id'] === $pid && $d['type'] === $type) {
-                $n = $k;
-            }
+    $p = $db['projects'][crm_project_at($db, $pid)];
+    $ci = crm_index($db['clients'], $p['client_id']);
+    $c = $db['clients'][$ci];
+    $n = null;
+    foreach ($db['documents'] as $k => $d) {
+        if ($d['project_id'] === $pid && $d['type'] === $type) {
+            $n = $k;
         }
-        // A made document that is already signed stays as it is. One only recorded by hand
-        // (accepted or signed before it had a PDF) can still get its PDF, keeping its status.
-        if ($n !== null && ($db['documents'][$n]['file'] ?? '') !== '' && in_array($db['documents'][$n]['status'], ['signed', 'paid', 'completed'], true)) {
-            throw new ApiError('The ' . strtolower(crm_doc_title($type)) . ' is already ' . $db['documents'][$n]['status'] . ', so it can’t be changed.');
-        }
-        $doc = $n !== null ? $db['documents'][$n] : [
-            'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid, 'type' => $type,
-            'token' => '', 'file' => '', 'link' => '', 'version' => 0, 'status' => 'draft', 'sent_at' => '', 'viewed_at' => '',
-            'completed_at' => '', 'note' => '', 'created_at' => gmdate('c'),
-        ];
-        $first = ($doc['file'] ?? '') === ''; // a document recorded by hand gets its first PDF as version 1
-        $doc['version'] = $first ? 1 : (int) $doc['version'] + 1;
-        $doc['token'] = ($doc['token'] ?? '') !== '' ? $doc['token'] : bin2hex(random_bytes(16));
-        if ($type === 'quotation' && ($doc['quote_no'] ?? '') === '') {
-            $day = date('Ymd', (int) strtotime(crm_today()));
-            $used = array_filter(array_column($db['documents'], 'quote_no'), static fn($q) => is_string($q) && str_starts_with($q, "Q-$day-"));
-            $doc['quote_no'] = sprintf('Q-%s-%02d', $day, count($used) + 1);
-        }
-        $snap = crm_doc_snapshot($db, $p, $c, $type, $in, $doc);
-        $base = "crm/files/{$doc['id']}-v{$doc['version']}";
-        write_atomic(data_path("$base.json"), encode_json($snap));
-        write_atomic(data_path("$base.pdf"), crm_doc_pdf($snap));
-        $doc['file'] = "$base.pdf";
-        $doc['generated_at'] = gmdate('c');
-        if ($n === null) {
-            $db['documents'][] = $doc;
-        } else {
-            $db['documents'][$n] = $doc;
-        }
-        crm_log($db, $p, $by, 'document', crm_doc_title($type) . ($first ? ' made' : " updated (version {$doc['version']})"));
-        return $p['client_id'];
-    });
+    }
+    // A made document that is already signed stays as it is. One only recorded by hand
+    // (accepted or signed before it had a PDF) can still get its PDF, keeping its status.
+    if ($n !== null && ($db['documents'][$n]['file'] ?? '') !== '' && in_array($db['documents'][$n]['status'], ['signed', 'paid', 'completed'], true)) {
+        throw new ApiError('The ' . strtolower(crm_doc_title($type)) . ' is already ' . $db['documents'][$n]['status'] . ', so it can’t be changed.');
+    }
+    $doc = $n !== null ? $db['documents'][$n] : [
+        'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid, 'type' => $type,
+        'token' => '', 'file' => '', 'link' => '', 'version' => 0, 'status' => 'draft', 'sent_at' => '', 'viewed_at' => '',
+        'completed_at' => '', 'note' => '', 'created_at' => gmdate('c'),
+    ];
+    $first = ($doc['file'] ?? '') === ''; // a document recorded by hand gets its first PDF as version 1
+    $doc['version'] = $first ? 1 : (int) $doc['version'] + 1;
+    $doc['token'] = ($doc['token'] ?? '') !== '' ? $doc['token'] : bin2hex(random_bytes(16));
+    if ($type === 'quotation' && ($doc['quote_no'] ?? '') === '') {
+        $day = date('Ymd', (int) strtotime(crm_today()));
+        $used = array_filter(array_column($db['documents'], 'quote_no'), static fn($q) => is_string($q) && str_starts_with($q, "Q-$day-"));
+        $doc['quote_no'] = sprintf('Q-%s-%02d', $day, count($used) + 1);
+    }
+    $snap = crm_doc_snapshot($db, $p, $c, $type, $in, $doc);
+    $base = "crm/files/{$doc['id']}-v{$doc['version']}";
+    write_atomic(data_path("$base.json"), encode_json($snap));
+    write_atomic(data_path("$base.pdf"), crm_doc_pdf($snap));
+    $doc['file'] = "$base.pdf";
+    $doc['generated_at'] = gmdate('c');
+    if ($n === null) {
+        $db['documents'][] = $doc;
+    } else {
+        $db['documents'][$n] = $doc;
+    }
+    crm_log($db, $p, $by, 'document', crm_doc_title($type) . ($first ? ' made' : " updated (version {$doc['version']})"));
+    return $p['client_id'];
 }
 
 /** Make sure the project has an intake questionnaire link. Returns the client id. */
 function crm_intake_link(string $pid, string $by): string
 {
-    return crm_tx(static function (array &$db) use ($pid, $by): string {
-        $p = $db['projects'][crm_project_at($db, $pid)];
-        foreach ($db['documents'] as $k => $d) {
-            if ($d['project_id'] === $pid && $d['type'] === 'intake') {
-                if (($d['token'] ?? '') === '') {
-                    $db['documents'][$k]['token'] = bin2hex(random_bytes(16));
-                }
-                return $p['client_id'];
+    return crm_tx(static fn(array &$db): string => crm_intake_link_in($db, $pid, $by));
+}
+
+/** crm_intake_link() inside a transaction that is already open (used by the automation too). */
+function crm_intake_link_in(array &$db, string $pid, string $by): string
+{
+    $p = $db['projects'][crm_project_at($db, $pid)];
+    foreach ($db['documents'] as $k => $d) {
+        if ($d['project_id'] === $pid && $d['type'] === 'intake') {
+            if (($d['token'] ?? '') === '') {
+                $db['documents'][$k]['token'] = bin2hex(random_bytes(16));
             }
+            return $p['client_id'];
         }
-        $db['documents'][] = [
-            'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid, 'type' => 'intake',
-            'token' => bin2hex(random_bytes(16)), 'file' => '', 'link' => '', 'version' => 1, 'status' => 'draft', 'sent_at' => '',
-            'viewed_at' => '', 'completed_at' => '', 'note' => '', 'created_at' => gmdate('c'),
-        ];
-        crm_log($db, $p, $by, 'document', 'Intake questionnaire link made');
-        return $p['client_id'];
-    });
+    }
+    $db['documents'][] = [
+        'id' => crm_id(), 'business' => CRM_BUSINESS, 'client_id' => $p['client_id'], 'project_id' => $pid, 'type' => 'intake',
+        'token' => bin2hex(random_bytes(16)), 'file' => '', 'link' => '', 'version' => 1, 'status' => 'draft', 'sent_at' => '',
+        'viewed_at' => '', 'completed_at' => '', 'note' => '', 'created_at' => gmdate('c'),
+    ];
+    crm_log($db, $p, $by, 'document', 'Intake questionnaire link made');
+    return $p['client_id'];
 }
 
 /** Mark a document sent (or back to draft). Returns the client id. */

@@ -1913,7 +1913,7 @@ async function crmClientPage(el, page, id) {
 const REEL_STATUS = { editing: 'Editing', review: 'Client review', approved: 'Approved', delivered: 'Delivered' };
 const REEL_JOB = { prepare: 'Preparing the video', auto: 'Splitting into beats', preview: 'Preview frames', render: 'Rendering the video' };
 // Effects that take the place of the big word (keep in step with NOBIG in lib/reels-bridge.js).
-const REEL_NOBIG = new Set(['title', 'bracketWord', 'ghostWord', 'noiseWord', 'focusWord', 'ribbon', 'ctaWord', 'typeLine', 'behindWord', 'walls', 'wordSwarm', 'titleWall', 'split', 'uiWall', 'duoCards', 'collage', 'shutter', 'carouselWide', 'flowNodes', 'phaseCards', 'halfBlur', 'mapRoute']);
+const REEL_NOBIG = new Set(['title', 'bracketWord', 'ghostWord', 'noiseWord', 'focusWord', 'ribbon', 'ctaWord', 'typeLine', 'behindWord', 'walls', 'wordSwarm', 'titleWall', 'split', 'uiWall', 'duoCards', 'collage', 'shutter', 'carouselWide', 'flowNodes', 'phaseCards', 'halfBlur', 'mapRoute', 'spendGrid', 'dotMap', 'globeTags', 'wordCards', 'news', 'teardown']);
 // Gallery names (bank/gallery.html) that are video effects in the editor.
 const REEL_GALLERY_VFX = { backgroundSwap: 'bg', outline: 'outline', clones: 'clones', echo: 'echo', windowUI: 'window', effectsGrid: 'grid', dzoom: 'zoom' };
 

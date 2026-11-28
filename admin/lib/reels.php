@@ -22,6 +22,7 @@ const REEL_STATUSES = ['editing', 'review', 'approved', 'delivered'];
 
 const REEL_GROUPS = [
     'plate' => 'Under your face',
+    'front' => 'In front of you',
     'type'  => 'Typography',
     'back'  => 'Behind you',
     'full'  => 'Full screen',
@@ -65,6 +66,11 @@ const REEL_EFFECTS = [
     'phone'        => ['plate', ['p' => 1]],
     'phoneCompare' => ['plate', ['p' => 2]],
     'spendGrid'    => ['plate', ['s' => 'Title, e.g. My AI stack', 'i' => 'Totals as TOTAL: $162 (up to 4), then tools as Claude, code: $20 (up to 6)']],
+    'chipGrid'     => ['plate', ['i' => 'Chips (up to 6), one per line: each pops in when you say its first word']],
+    'profileCard'  => ['plate', ['s' => 'Name on the card', 'i' => 'Up to 3 stats, one per line: Followers: 12.4K (an @handle line is optional)', 'p' => 0]],
+    'commentBar'   => ['plate', ['s' => "Word that gets typed (default: the reel's comment word)", 'p' => 0]],
+    'propIn'       => ['front', ['s' => 'Side: left, centre or right (default: right)', 'n' => 'Size, % of the width (default: 60)', 'p' => 1]],
+    'phoneWhip'    => ['front', ['p' => 1]],
     'title'        => ['type', ['s' => 'Small word above the big word']],
     'bracketWord'  => ['type', ['s' => 'Small word before the big word']],
     'ghostWord'    => ['type', ['s' => 'Word (default: the big word)']],
@@ -80,6 +86,8 @@ const REEL_EFFECTS = [
     'lineBehind'   => ['back', ['s' => 'Label']],
     'ring'         => ['back', ['s' => 'Label']],
     'collage'      => ['back', ['p' => 3]],
+    'photoFan'     => ['back', ['s' => 'Side: left or right (default: left)', 'p' => 2]],
+    'sideCard'     => ['back', ['i' => 'Text beside the photo (default: your words, lit as you say them)', 'p' => 1]],
     'orbit'        => ['back', ['p' => 3]],
     'duoCards'     => ['back', ['i' => 'Two labels: before: random posts', 'p' => 2]],
     'titleWall'    => ['back', ['s' => 'Line 1 (default: the big word)', 'i' => 'Line 2', 'p' => 0]],
@@ -99,6 +107,17 @@ const REEL_EFFECTS = [
     'news'         => ['full', ['s' => 'Headline (default: the big word)', 'i' => 'Subhead on the first line, then the text. *Stars* highlight words. Optional lines: Paper: NAME, Caption: …', 'p' => 0]],
     'teardown'     => ['full', ['i' => 'Layers (up to 5), one per line: Captions: one word at a time', 'p' => 0]],
     'cta'          => ['end', []],
+];
+
+/** What STUDIIO's own effects (drawn in lib/reels-bridge.js, not in the package) show and suit: name => [shows, good for]. */
+const REEL_OWN_NOTES = [
+    'chipGrid'    => ['white chips pop in as I say each one', 'skills, services, features, a list said out loud'],
+    'profileCard' => ['a social profile card with counting stats', 'your account, followers, growth'],
+    'commentBar'  => ['a comment bar types the code word', 'the call to action: comment a word'],
+    'propIn'      => ['a cut-out object rises in front of me', 'a product, a tool, a prop (a PNG with no background)'],
+    'phoneWhip'   => ['a phone whips in with your screenshot', 'the finished post, an app, a result on a phone'],
+    'photoFan'    => ['photos fan out beside me', 'examples, listings, your work'],
+    'sideCard'    => ['a tall photo slides in, words light up beside it', 'one example with a short line about it'],
 ];
 
 /** Video effects (engine/vfx.py changes the picture itself): kind => [label, options]. */
@@ -987,8 +1006,8 @@ function reel_catalog(): array
             'name'   => $name,
             'group'  => $group,
             'fields' => (object) $fields,
-            'say'    => $name === 'cta' ? 'call to action at the end' : ($notes[$name]['say'] ?? ''),
-            'good'   => $name === 'cta' ? 'the last beat: your code word, or "follow for more"' : ($notes[$name]['good'] ?? ''),
+            'say'    => $name === 'cta' ? 'call to action at the end' : ($notes[$name]['say'] ?? REEL_OWN_NOTES[$name][0] ?? ''),
+            'good'   => $name === 'cta' ? 'the last beat: your code word, or "follow for more"' : ($notes[$name]['good'] ?? REEL_OWN_NOTES[$name][1] ?? ''),
         ];
     }
     return $out;
@@ -1008,6 +1027,15 @@ function reel_payload(string $slug): array
     if ($ready && $beats['doc'] === null && is_file("$dir/studiio-auto.json")) {
         reel_beats_from_auto($slug);
         $beats = reel_beats_load($slug);
+    }
+    // A reel last saved before the effects code changed still has the old code in overlay.html, so the
+    // live preview wouldn't draw the newer effects: bring it up to date when the reel is opened.
+    if ($ready && $beats['doc'] !== null && !str_contains((string) @file_get_contents("$dir/overlay.html"), trim((string) file_get_contents(__DIR__ . '/reels-bridge.js')))) {
+        try {
+            reel_sync_overlay($slug);
+        } catch (ApiError $e) {
+            error_log('studiio-reels: ' . $e->getMessage());
+        }
     }
     $proj = $ready ? read_json_file("$dir/project.json", []) : [];
     $file = static fn(string $rel): ?int => is_file("$dir/$rel") ? (int) filemtime("$dir/$rel") : null;
@@ -1093,7 +1121,7 @@ beats.json:
 - fields: content for the effect. Empty fields fall back to the words of the phrase. items is a list of short strings. photos are file names in the photos/ folder of this reel (list them with Glob photos/*); never use photos that aren't there, and pick a different effect when an effect needs photos the reel doesn't have.
 - vfx: video effects that change the picture itself: $vfx. 1.5 to 4 seconds each, start and end on beat boundaries, at most 3, never two at the same time.
 
-Style rules (Reels Montage PRO): pick each effect by the meaning of the phrase; never the same effect twice in a row; at least one effect behind the person and one typography effect per reel; lists → checklist or toggleList, numbers → statCard or numPair, time → stopwatch, questions → askBar, comparisons → duoCircles, messages → notifyStack, short punchlines → typography. Keep text short. Fix words the transcript misheard when you write them into big, say or items.
+Style rules (Reels Montage PRO): pick each effect by the meaning of the phrase; never the same effect twice in a row; at least one effect behind the person and one typography effect per reel; lists → checklist or toggleList, numbers → statCard or numPair, time → stopwatch, questions → askBar, comparisons → duoCircles, messages → notifyStack, short punchlines → typography, examples or listings → photoFan or sideCard, a product → propIn, a post or result on a phone → phoneWhip, skills or services said one by one → chipGrid, an account or followers → profileCard, "comment WORD" → commentBar. Keep text short. Fix words the transcript misheard when you write them into big, say or items.
 
 Effects:
 $effects

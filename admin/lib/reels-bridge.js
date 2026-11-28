@@ -7,13 +7,32 @@
  const SAFE=s=>String(s==null?'':s).replace(/</g,'‹').replace(/>/g,'›').replace(/"/g,'”').replace(/['`]/g,'’');
  const STOP=/^(the|and|did|not|but|you|was|are|for|with|this|that|its|it's|cup|all|just|one|what|how|has|had|can|our|your|will|need|don't|dont|have|make|made|get|got|there|they|them|then|than|from|into|about|really|very)$/;
  const keyWords=(a,b)=>W.filter(w=>w[0]>=a&&w[0]<b).map(w=>w[2].replace(/[.,?!]/g,'').toLowerCase()).filter(w=>w.length>2&&!STOP.test(w)).filter((w,k,arr)=>arr.indexOf(w)===k);
- const NOBIG=new Set(['title','bracketWord','ghostWord','noiseWord','focusWord','ribbon','ctaWord','typeLine','behindWord','walls','wordSwarm','titleWall','split','uiWall','duoCards','collage','shutter','carouselWide','flowNodes','phaseCards','halfBlur','mapRoute']);
+ const NOBIG=new Set(['title','bracketWord','ghostWord','noiseWord','focusWord','ribbon','ctaWord','typeLine','behindWord','walls','wordSwarm','titleWall','split','uiWall','duoCards','collage','shutter','carouselWide','flowNodes','phaseCards','halfBlur','mapRoute','spendGrid','dotMap','globeTags','wordCards','news','teardown']);
  const num=(s,d)=>{const m=String(s||'').match(/-?\d[\d.,]*/);return m?parseFloat(m[0].replace(/,/g,'')):d};
  const list=(c,fb)=>(c.items.length?c.items:fb).filter(Boolean);
  const pair=s=>{const m=String(s).match(/^(.*?)\s*[:—–]\s*(.+)$/);return m?[m[1].trim(),m[2].trim()]:[String(s),'']};
  const lead=s=>{const m=String(s).match(/^(\S+)\s+(.+)$/);return m?[m[1],m[2]]:[String(s),'']};
  const frost=(c,inner)=>BANK.scene(c.t,c.A,c.B,inner,{kind:'frost'});
  const CTA={word:'',gift:'FREE GUIDE'};
+ // Places for dotMap and globeTags: a country or a big city (English) → [longitude, latitude].
+ const PLACES={lebanon:[35.8,33.9],beirut:[35.5,33.9],uae:[54.4,24],emirates:[54.4,24],'united arab emirates':[54.4,24],dubai:[55.3,25.2],'abu dhabi':[54.4,24.5],
+  'saudi arabia':[45,24],saudi:[45,24],ksa:[45,24],riyadh:[46.7,24.7],jeddah:[39.2,21.5],qatar:[51.2,25.3],doha:[51.5,25.3],kuwait:[47.6,29.3],bahrain:[50.6,26],oman:[57,21],muscat:[58.4,23.6],
+  jordan:[36.5,31],amman:[35.9,31.95],syria:[38.5,35],damascus:[36.3,33.5],iraq:[44,33],baghdad:[44.4,33.3],palestine:[35.2,31.9],egypt:[30.8,26.8],cairo:[31.2,30],morocco:[-6.5,32],
+  casablanca:[-7.6,33.6],algeria:[2.6,28],tunisia:[9.5,34],libya:[17,27],sudan:[30,15],turkey:[35,39],istanbul:[29,41],iran:[53,32],cyprus:[33,35],armenia:[45,40],
+  'united kingdom':[-2,54],uk:[-2,54],england:[-1.5,52.5],britain:[-2,54],london:[-0.1,51.5],france:[2.2,46.6],paris:[2.35,48.85],germany:[10.4,51.2],berlin:[13.4,52.5],
+  spain:[-3.7,40.4],madrid:[-3.7,40.4],barcelona:[2.2,41.4],italy:[12.5,42.8],rome:[12.5,41.9],milan:[9.2,45.5],netherlands:[5.3,52.1],amsterdam:[4.9,52.4],belgium:[4.5,50.6],
+  switzerland:[8.2,46.8],geneva:[6.1,46.2],sweden:[15,62],norway:[9,61],denmark:[10,56],poland:[19,52],greece:[22,39],athens:[23.7,38],portugal:[-8,39.5],lisbon:[-9.1,38.7],
+  ireland:[-8,53],austria:[14.5,47.5],russia:[100,60],moscow:[37.6,55.8],ukraine:[31,49],
+  usa:[-98,39],us:[-98,39],'united states':[-98,39],america:[-98,39],'new york':[-74,40.7],'los angeles':[-118.2,34],california:[-119.5,37],miami:[-80.2,25.8],texas:[-99,31],
+  canada:[-100,58],toronto:[-79.4,43.7],montreal:[-73.6,45.5],mexico:[-102,23.6],brazil:[-52,-10],'sao paulo':[-46.6,-23.5],argentina:[-64,-34],chile:[-71,-35],colombia:[-74,4.5],peru:[-75,-9],
+  india:[78,21],china:[104,35],japan:[138,36],tokyo:[139.7,35.7],'south korea':[128,36],korea:[128,36],singapore:[103.8,1.35],indonesia:[117,-2],philippines:[122,12],thailand:[101,15],
+  vietnam:[106,16],malaysia:[102,4],pakistan:[69,30],bangladesh:[90,24],australia:[134,-25],sydney:[151.2,-33.9],'new zealand':[174,-41],
+  nigeria:[8,9.5],'south africa':[25,-29],kenya:[38,0.5],ghana:[-1,8],ethiopia:[39,9],senegal:[-14.5,14.5],'ivory coast':[-5.5,7.5]};
+ const place=s=>{const k=String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/^the\s+/,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();return PLACES[k]||null};
+ // dotMap's dot grid (BANK._wm): longitude/latitude → [column, row], moved to the nearest dot of land.
+ const mapCell=ll=>{const M=BANK._wm,R=M.length,C=M[0].length;let c=Math.floor((ll[0]+180)/360*C),r=Math.floor((82-ll[1])/(140/R));
+  for(let d=0;d<=3;d++)for(let dr=-d;dr<=d;dr++)for(let dc=-d;dc<=d;dc++){const rr=r+dr,cc=c+dc;if(M[rr]&&M[rr][cc]==='X')return [cc,rr]}return [c,r]};
+ const today=()=>new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase();
  const orb=(c,part)=>({cx:c.H.cx,cy:Math.min(1400,c.FB+120),rx:470,ry:150,size:210,part});
  const ringWords=c=>list(c,c.ws.slice(0,8)).slice(0,8).map((w,k)=>[w,c.A+.1*(k+1)]);
  const splitInner=c=>`<div style="padding:120px 90px;color:#1d1d1f;font-family:Inter"><div style="font:500 70px Inter;letter-spacing:-.02em">${ty(c.say||c.big.toLowerCase(),c.t,c.A+.3,18)}</div><div style="font:400 36px Inter;color:#444;margin-top:30px;line-height:1.7">${c.items.slice(0,4).map((s,i)=>`<div style="opacity:${cl((c.t-c.A-1.1-i*.3)/.2)}"><span style="color:#F2632A">●</span> ${s}</div>`).join('')}</div></div>`;
@@ -78,6 +97,29 @@
   phaseCards:{f:c=>frost(c,BANK.phaseCards(c.t,c.A,c.B,list(c,c.ws.slice(0,4)).slice(0,4).map((s,k)=>{const p=pair(s);return [p[0],'step '+(k+1),p[1]?p[1].split(/,\s*/).slice(0,3):[]]})))},
   halfBlur:{f:c=>{const it=c.items.length>=2?c.items.map(lead):[['',c.w0],['',c.w1]];return frost(c,BANK.halfBlur(c.t,c.A,c.B,it[0],it[1]))}},
   mapRoute:{f:c=>frost(c,BANK.mapRoute(c.t,c.A,c.B,{from:c.items[0]||'start',to:c.items[1]||c.big.toLowerCase(),eta:c.say||''}))},
+  // Totals as "TOTAL: $162", tools as "Claude, code: $20".
+  spendGrid:{g:1,f:c=>{const stats=[],tools=[];c.items.forEach(s=>{const m=s.match(/^(.+?),\s*(.+?)\s*[:—–]\s*(.+)$/);if(m)tools.push([m[1],m[2],m[3]]);else{const p=pair(s);stats.push([p[0].toUpperCase(),p[1]])}});
+   if(!stats.length)stats.push(['TOTAL',c.num||'']);const sub=(c.big||'tools').toLowerCase();
+   return BANK.spendGrid(c.t,c.A,c.B,stats.slice(0,4),tools.slice(0,6),{y:c.fy(c.y-60,960),title:c.say||'Costs',sub:sub.charAt(0).toUpperCase()+sub.slice(1)})}},
+  // Places as "Lebanon: 43%"; the label is the place, the number the value.
+  dotMap:{f:c=>{const pins=[];c.items.slice(0,4).forEach((s,k)=>{const p=pair(s),ll=place(p[0]);if(!ll)return;const [col,row]=mapCell(ll);pins.push([col,row,p[1]||'',p[0],c.A+.6+k*.35,row<6?240:(k%2?240:-240)])});
+   return frost(c,BANK.dotMap(c.t,c.A,c.B,pins,{title:c.say||''}))}},
+  // Tags around the globe; "Beirut, London" draws the arc between the two places.
+  globeTags:{f:c=>{const tags=list(c,c.ws.slice(0,5)).slice(0,6),n=tags.length||1;const [p1,p2]=String(c.say||'').split(/\s*(?:,|→|->|\bto\b)\s*/i);
+   const from=place(p1)||[35.5,33.9],to=place(p2)||[55.3,25.2];
+   return frost(c,BANK.globeTags(c.t,c.A,c.B,tags.map((w,k)=>{const a=(-110+k*360/n)*Math.PI/180;return [w,Math.round(Math.cos(a)*400),Math.round(Math.sin(a)*470)]}),{from,to}))}},
+  // Cards as "Basic: $500: 4 reels, 1 visit, captions"; the number picks the highlighted card.
+  wordCards:{f:c=>{const cards=list(c,[c.w0,c.w1,c.w2]).slice(0,3).map(s=>{const m=String(s).split(/\s*:\s*/);return [m[0]||'',m[1]||'',(m.slice(2).join(': ')||'').split(/\s*,\s*/).filter(Boolean).slice(0,4)]});
+   const hot=Math.min(cards.length,Math.max(1,num(c.num,Math.min(2,cards.length))))-1;
+   return frost(c,BANK.wordCards(c.t,c.A,c.B,c.say||(c.big||'Pricing'),cards,{hot}))}},
+  // First line the subhead, then the text; *stars* highlight words; "Paper:" and "Caption:" lines are optional.
+  news:{f:c=>{let paper='THE DAILY',cap='';const marks=[],lines=[];c.items.forEach(s=>{const m=s.match(/^(paper|caption)\s*:\s*(.+)$/i);if(m){if(m[1].toLowerCase()==='paper')paper=m[2].toUpperCase();else cap=m[2]}else lines.push(s)});
+   const clean=s=>String(s||'').replace(/\*([^*]+)\*/g,(_,w)=>{marks.push(w);return w});const deck=clean(lines[0]),body=clean(lines.slice(1).join(' '));
+   return frost(c,BANK.newsHighlight(c.t,c.A,c.B,{paper,date:today(),head:c.say||c.big||c.raw,deck,body,marks,src:c.photos[0]||'',cap}))}},
+  // Layers as "Captions: one word at a time"; the drawing follows the name; a photo fills the footage layer.
+  teardown:{f:c=>{const kind=n=>/caption|subtitle|text/i.test(n)?'captions':/effect|graphic|motion|title/i.test(n)?'effects':/sound|music|audio|sfx|voice/i.test(n)?'sound':/cut|edit|trim/i.test(n)?'cuts':'footage';
+   const it=(c.items.length?c.items:['captions: one word at a time','effects: glass plates','sound: quiet sfx','cuts: pauses removed','footage: your clip']).slice(0,5).map(s=>{const p=pair(s);return [p[0],p[1],kind(p[0])]});
+   return frost(c,BANK.teardown(c.t,c.A,c.B,it,{src:c.photos[0]||''}))}},
   cta:{f:c=>{const msg=CTA.word?`comment ${CTA.word} · ${CTA.gift.toLowerCase()}`:'follow for more';const fu=faceU(Math.max(0,c.t-.3),c.t+.3);
    if(fu.b>1320||below(c.t)+470>1600)return BANK.chatPill(c.t,c.A,c.B,msg,{y:190});
    return CTA.word?BANK.labelPlate(c.t,c.A,c.B,'comment '+CTA.word,CTA.gift,{y:below(c.t),sub:'I’ll send it to your DMs'}):BANK.labelPlate(c.t,c.A,c.B,'follow','FOR MORE',{y:below(c.t),sub:'new reels every week'})}},

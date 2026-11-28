@@ -64,6 +64,7 @@ const REEL_EFFECTS = [
     'pathRide'     => ['plate', ['s' => 'Label', 'p' => 1]],
     'phone'        => ['plate', ['p' => 1]],
     'phoneCompare' => ['plate', ['p' => 2]],
+    'spendGrid'    => ['plate', ['s' => 'Title, e.g. My AI stack', 'i' => 'Totals as TOTAL: $162 (up to 4), then tools as Claude, code: $20 (up to 6)']],
     'title'        => ['type', ['s' => 'Small word above the big word']],
     'bracketWord'  => ['type', ['s' => 'Small word before the big word']],
     'ghostWord'    => ['type', ['s' => 'Word (default: the big word)']],
@@ -92,6 +93,11 @@ const REEL_EFFECTS = [
     'phaseCards'   => ['full', ['i' => 'Phases, one per line: Film: phone, any room']],
     'halfBlur'     => ['full', ['i' => 'Two lines, number first: 20% what people see']],
     'mapRoute'     => ['full', ['i' => 'Two lines: from, to', 's' => 'Time, e.g. 2 min']],
+    'dotMap'       => ['full', ['s' => 'Title, e.g. Where the views come from', 'i' => 'Places (up to 4), one per line: Lebanon: 43% (a country or a big city, in English)']],
+    'globeTags'    => ['full', ['i' => 'Tags around the globe, one per line', 's' => 'Arc between two places, e.g. Beirut, London']],
+    'wordCards'    => ['full', ['s' => 'Big word (default: the big word)', 'i' => 'Cards (up to 3), one per line: Basic: $500: 4 reels, 1 visit, captions', 'n' => 'Card to highlight: 1, 2 or 3']],
+    'news'         => ['full', ['s' => 'Headline (default: the big word)', 'i' => 'Subhead on the first line, then the text. *Stars* highlight words. Optional lines: Paper: NAME, Caption: …', 'p' => 0]],
+    'teardown'     => ['full', ['i' => 'Layers (up to 5), one per line: Captions: one word at a time', 'p' => 0]],
     'cta'          => ['end', []],
 ];
 
@@ -882,6 +888,12 @@ function reel_sync_overlay(string $slug): bool
         throw new ApiError("This reel's overlay.html doesn't look like the Reels Montage PRO template (no EDIT PER VIDEO block end), so the editor can't add the beats to it.", 500);
     }
     $at = $m[1][1];
+    // globeTags draws the land from the package's world map outlines; load them once in this reel's page.
+    if (!str_contains($clean, 'bank/world110.js') && preg_match('#<script src="\.\./\.\./bank/components\.js"></script>#', $clean, $cm, PREG_OFFSET_CAPTURE)) {
+        $pos = $cm[0][1] + strlen($cm[0][0]);
+        $clean = substr($clean, 0, $pos) . "\n" . '<script src="../../bank/world110.js"></script>' . substr($clean, $pos);
+        $at += strlen("\n" . '<script src="../../bank/world110.js"></script>');
+    }
     $json = json_encode($beats, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
     $bridge = (string) file_get_contents(__DIR__ . '/reels-bridge.js');
     $block = REEL_BLOCK_START . ": written by the STUDIIO admin from beats.json. Edit beats.json (or the admin), never this block.\n"

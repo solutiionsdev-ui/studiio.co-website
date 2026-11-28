@@ -7,7 +7,7 @@
  const SAFE=s=>String(s==null?'':s).replace(/</g,'‹').replace(/>/g,'›').replace(/"/g,'”').replace(/['`]/g,'’');
  const STOP=/^(the|and|did|not|but|you|was|are|for|with|this|that|its|it's|cup|all|just|one|what|how|has|had|can|our|your|will|need|don't|dont|have|make|made|get|got|there|they|them|then|than|from|into|about|really|very)$/;
  const keyWords=(a,b)=>W.filter(w=>w[0]>=a&&w[0]<b).map(w=>w[2].replace(/[.,?!]/g,'').toLowerCase()).filter(w=>w.length>2&&!STOP.test(w)).filter((w,k,arr)=>arr.indexOf(w)===k);
- const NOBIG=new Set(['title','bracketWord','ghostWord','noiseWord','focusWord','ribbon','ctaWord','typeLine','behindWord','walls','wordSwarm','titleWall','split','uiWall','duoCards','collage','shutter','carouselWide','flowNodes','phaseCards','halfBlur','mapRoute','spendGrid','dotMap','globeTags','wordCards','news','teardown']);
+ const NOBIG=new Set(['title','bracketWord','ghostWord','noiseWord','focusWord','ribbon','ctaWord','typeLine','behindWord','walls','wordSwarm','titleWall','split','uiWall','duoCards','collage','shutter','carouselWide','flowNodes','phaseCards','halfBlur','mapRoute','spendGrid','dotMap','globeTags','wordCards','news','teardown','phoneWhip','sideCard']);
  const num=(s,d)=>{const m=String(s||'').match(/-?\d[\d.,]*/);return m?parseFloat(m[0].replace(/,/g,'')):d};
  const list=(c,fb)=>(c.items.length?c.items:fb).filter(Boolean);
  const pair=s=>{const m=String(s).match(/^(.*?)\s*[:—–]\s*(.+)$/);return m?[m[1].trim(),m[2].trim()]:[String(s),'']};
@@ -33,6 +33,54 @@
  const mapCell=ll=>{const M=BANK._wm,R=M.length,C=M[0].length;let c=Math.floor((ll[0]+180)/360*C),r=Math.floor((82-ll[1])/(140/R));
   for(let d=0;d<=3;d++)for(let dr=-d;dr<=d;dr++)for(let dc=-d;dc<=d;dc++){const rr=r+dr,cc=c+dc;if(M[rr]&&M[rr][cc]==='X')return [cc,rr]}return [c,r]};
  const today=()=>new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase();
+ // STUDIIO's own effects (chipGrid … sideCard) are drawn here, not in the package: white UI cards and photo moves.
+ const said=(A,B)=>W.filter(w=>w[0]>=A-.2&&w[0]<B);
+ const nrm=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+ // When the first word of a line is spoken inside the beat (null when it isn't said).
+ const whenSaid=(s,A,B)=>{const k=nrm(String(s).split(/\s+/)[0]).slice(0,5);if(k.length<2)return null;const w=said(A,B).find(w=>{const x=nrm(w[2]);return x.startsWith(k)||(x.length>3&&k.startsWith(x))});return w?w[0]:null};
+ const wide=c=>c.H.w<300;   // the face is small: a wide shot with room around the person
+ const fan=c=>{const ph=c.photos.slice(0,5),n=ph.length;if(!n)return '';const s=/right/i.test(c.say)?1:-1,w=270,h=350,o=cl((c.B-c.t)/.25),W0=wide(c);
+  const sp=(n-1)/2*78+w/2+70,px=Math.max(sp,Math.min(1080-sp,c.H.cx+s*(c.H.w*(W0?.6:.45)+(W0?250:200)))),py=W0?Math.min(1380,c.FB+170):Math.max(900,Math.min(1420,c.FB+80));
+  return ph.map((src,k)=>{const j=k-(n-1)/2,a=c.A+.08+k*.12;if(c.t<a)return '';const e=eb((c.t-a)/.5);
+   const x=c.H.cx+(px+j*78-c.H.cx)*e,y=py+40+(Math.abs(j)*24+Math.sin(c.t*1.6+k)*4-40)*e+(1-o)*40,r=(j*9+s*4)*e;
+   return `<div class="a" style="left:${x-w/2}px;top:${y-h/2}px;width:${w}px;height:${h}px;box-sizing:border-box;border:6px solid #fff;border-radius:22px;overflow:hidden;background:#ddd;box-shadow:0 24px 50px rgba(0,0,0,.28);opacity:${cl((c.t-a)/.12)*o};transform:rotate(${r}deg) scale(${.5+.5*e})"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`}).join('')};
+ // sideCard: the card slides in at the left; the words light up as they are said. Wide shot: words to the right of the card,
+ // behind the head (as in the reference). Close-up: card and words in a column left of the face, in front.
+ const side=(c,layer)=>{const src=c.photos[0],fx=faceU(c.A,Math.min(c.B,DUR)),W0=wide(c),x=50,w=Math.max(220,Math.min(420,fx.x-90)),h=Math.round(w*1.45);
+  const y=Math.max(150,Math.min(W0?760:600,c.H.top-40)),k=eo((c.t-c.A)/.5),out=cl((c.t-(c.B-.3))/.3),dx=-(x+w+80)*(1-k)-(x+w+80)*out*out,o=cl((c.t-c.A-.15)/.2)*(1-out);
+  const words=c.items.length?c.items.join(' ').split(/\s+/).filter(Boolean).map((t,i,arr)=>[t,c.A+.3+Math.max(.5,c.B-c.A-.9)*i/arr.length]):said(c.A,c.B).map(w=>[SAFE(w[2]),w[0]]);
+  const card=src?`<div class="a" style="left:${x+dx}px;top:${y}px;width:${w}px;height:${h}px;border-radius:28px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.3);transform:rotate(${-(1-k)*4}deg)"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`:'';
+  const lit=words.map(([t,wt])=>`<span style="opacity:${c.t>=wt?1:.28}">${t}</span>`).join(' ');
+  if(W0){if(layer!=='b')return '';const tx=Math.min(700,Math.max(src?x+w+44:x,fx.r+30));
+   return card+`<div class="a" style="left:${tx}px;top:${y+6}px;width:${1080-60-tx}px;font:600 60px/1.08 Inter;letter-spacing:-.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.35);opacity:${o}">${lit}</div>`}
+  if(layer!=='f')return '';const tw=Math.max(w,fx.x-80);
+  return card+`<div class="a" style="left:${x}px;top:${src?y+h+28:y}px;width:${tw}px;font:600 50px/1.1 Inter;letter-spacing:-.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.45);opacity:${o}">${lit}</div>`};
+ const CARD='background:#fff;color:#16161a;box-shadow:0 26px 60px rgba(0,0,0,.22),0 3px 10px rgba(0,0,0,.10)';
+ const BLUE='#0095F6';
+ const avatar=(src,name,d)=>src?`<img src="${src}" style="width:${d}px;height:${d}px;border-radius:50%;object-fit:cover;flex:none;display:block">`
+  :`<div style="width:${d}px;height:${d}px;border-radius:50%;flex:none;background:linear-gradient(135deg,#F2632A,#C13584);color:#fff;font:600 ${Math.round(d*.42)}px/1 Inter;display:flex;align-items:center;justify-content:center">${(String(name||'S').trim()[0]||'S').toUpperCase()}</div>`;
+ const svg=(d,fill)=>`<svg width="30" height="30" viewBox="0 0 24 24" style="flex:none;display:block" fill="${fill?'#16161a':'none'}" stroke="#16161a" stroke-width="${fill?0:2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+ const icon=s=>{s=String(s).toLowerCase();
+  if(/transition|cut|edit|trim/.test(s))return svg('<rect x="3" y="7" width="11" height="11" rx="2.5"/><rect x="10" y="4" width="11" height="11" rx="2.5"/>');
+  if(/sound|audio|music|voice|sfx/.test(s))return svg('<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>');
+  if(/motion|graphic|animat|effect|design|visual/.test(s))return svg('<path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z"/>',1);
+  if(/story|script|hook|caption|copy|writ/.test(s))return svg('<path d="M5 4h10l4 4v12H5z"/><path d="M8 11h8M8 15h6"/>');
+  if(/camera|film|shoot|video|footage/.test(s))return svg('<rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10l5-3v10l-5-3z"/>');
+  if(/grow|result|sale|lead|money|view|reach/.test(s))return svg('<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>');
+  return '<span style="width:16px;height:16px;border-radius:50%;background:#F2632A;flex:none;display:block"></span>'};
+ // "12.4K" counts up from 0 to 12.4 and keeps the K; k runs 0 → 1.
+ const countUp=(v,k)=>{const m=String(v).match(/^([^\d]*)([\d][\d.,]*)(.*)$/);if(!m)return v;const n=parseFloat(m[2].replace(/,/g,'')),dec=(m[2].split('.')[1]||'').length,x=n*eo(k);
+  return m[1]+(dec?x.toFixed(dec):Math.round(x).toLocaleString('en-US'))+m[3]};
+ // Sound cues for STUDIIO's own effects: beat → [[seconds, sound, volume], …] (sounds as in engine/sfx2.py).
+ const CUES={
+  chipGrid:b=>(b.items.length?b.items:b.ws.slice(0,4)).slice(0,6).map((s,k)=>[whenSaid(s,b.a+.15,b.end)??(b.a+.4+k*.45),'pop',.3]),
+  profileCard:b=>[[b.a+.15,'pop',.3],[b.a+.6,'air',.25]],
+  commentBar:b=>{const w=String(b.say||CTA.word||b.big||'GUIDE').slice(0,14),t0=b.a+.6,cps=Math.max(9,w.length/Math.max(.3,b.end-.05-1.25-t0));return [[b.a+.15,'air',.3],...[...w].map((_,i)=>[t0+i/cps,'type',.25]),[t0+w.length/cps+.3,'pop',.35]]},
+  propIn:b=>[[b.a+.15,'air',.35],[b.a+.6,'sub',.2]],
+  phoneWhip:b=>[[b.a+.15,'air',.45]],
+  photoFan:b=>[[b.a+.2,'air',.35]],
+  sideCard:b=>[[b.a+.15,'air',.35]],
+ };
  const orb=(c,part)=>({cx:c.H.cx,cy:Math.min(1400,c.FB+120),rx:470,ry:150,size:210,part});
  const ringWords=c=>list(c,c.ws.slice(0,8)).slice(0,8).map((w,k)=>[w,c.A+.1*(k+1)]);
  const splitInner=c=>`<div style="padding:120px 90px;color:#1d1d1f;font-family:Inter"><div style="font:500 70px Inter;letter-spacing:-.02em">${ty(c.say||c.big.toLowerCase(),c.t,c.A+.3,18)}</div><div style="font:400 36px Inter;color:#444;margin-top:30px;line-height:1.7">${c.items.slice(0,4).map((s,i)=>`<div style="opacity:${cl((c.t-c.A-1.1-i*.3)/.2)}"><span style="color:#F2632A">●</span> ${s}</div>`).join('')}</div></div>`;
@@ -120,6 +168,44 @@
   teardown:{f:c=>{const kind=n=>/caption|subtitle|text/i.test(n)?'captions':/effect|graphic|motion|title/i.test(n)?'effects':/sound|music|audio|sfx|voice/i.test(n)?'sound':/cut|edit|trim/i.test(n)?'cuts':'footage';
    const it=(c.items.length?c.items:['captions: one word at a time','effects: glass plates','sound: quiet sfx','cuts: pauses removed','footage: your clip']).slice(0,5).map(s=>{const p=pair(s);return [p[0],p[1],kind(p[0])]});
    return frost(c,BANK.teardown(c.t,c.A,c.B,it,{src:c.photos[0]||''}))}},
+  // ---- STUDIIO's own effects ----
+  // White chips with an icon, two columns at chest height; each pops in when its first word is said.
+  chipGrid:{g:1,f:c=>{const it=list(c,c.ws.slice(0,4)).slice(0,6),top=c.fy(c.y,1180),cx=Math.max(420,Math.min(660,c.H.cx)),o=cl((c.B-c.t)/.2);
+   return it.map((s,k)=>{const a=whenSaid(s,c.A,c.B)??(c.A+.25+k*.45);if(c.t<a-.02)return '';const e=eb((c.t-a)/.38),col=k%2,y=top+Math.floor(k/2)*96;
+    return `<div class="a" style="${col?`left:${cx+10}px`:`right:${1080-cx+10}px`};top:${y}px;display:flex;align-items:center;gap:14px;padding:16px 30px 16px 22px;border-radius:999px;${CARD};font:600 32px/1 Inter;white-space:nowrap;opacity:${cl((c.t-a)/.1)*o};transform:translateY(${(1-e)*24}px) scale(${.55+.45*e});transform-origin:${col?'0%':'100%'} 50%">${icon(s)}${s}</div>`}).join('')}},
+  // A profile card: pops in as a small pill with the name, then opens to show the stats counting up.
+  profileCard:{g:1,f:c=>{const name=c.say||'Your Name';let handle='';const stats=[];
+   c.items.forEach(s=>{if(/^@/.test(s)||/^handle\s*:/i.test(s))handle=s.replace(/^handle\s*:\s*/i,'');else{const p=pair(s);if(p[1])stats.push(p)}});
+   if(!stats.length)stats.push(['Posts','248'],['Followers','12.4K'],['Following','310']);
+   const top=c.fy(c.y,1150),cx=Math.max(420,Math.min(660,c.H.cx)),k1=eb((c.t-c.A)/.4),k2=eo((c.t-c.A-.45)/.45),o=cl((c.t-c.A)/.1)*cl((c.B-c.t)/.2),w=430+330*k2,h=104+160*k2;
+   return `<div class="a" style="left:${cx-w/2}px;top:${top}px;width:${w}px;height:${h}px;border-radius:34px;${CARD};overflow:hidden;opacity:${o};transform:scale(${.3+.7*k1});transform-origin:50% 0">
+    <div style="display:flex;align-items:center;gap:20px;padding:20px 24px">${avatar(c.photos[0],name,64)}<div style="flex:1;min-width:0"><div style="font:600 32px/1.1 Inter;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>${handle?`<div style="font:400 24px/1.3 Inter;color:#737373;white-space:nowrap">${handle}</div>`:''}</div>
+    ${k2>.05?`<div style="opacity:${k2};background:${BLUE};color:#fff;font:600 26px/1 Inter;padding:14px 26px;border-radius:14px;flex:none">Follow</div>`:''}</div>
+    <div style="display:flex;justify-content:space-around;padding:4px 20px 0;opacity:${k2}">${stats.slice(0,3).map(([l,v])=>`<div style="text-align:center;min-width:150px"><div style="font:600 42px/1.15 Inter">${countUp(v,cl((c.t-c.A-.6)/.8))}</div><div style="font:400 24px/1.4 Inter;color:#737373">${l}</div></div>`).join('')}</div></div>`}},
+  // A comment bar: types the code word, presses Post, and the comment pops above it.
+  commentBar:{g:1,f:c=>{const word=String(c.say||CTA.word||c.big||'GUIDE').toUpperCase().slice(0,14),top=c.fy(c.y,1200),w=860,x=(1080-w)/2,e=eb((c.t-c.A)/.45),o=cl((c.t-c.A)/.1)*cl((c.B-c.t)/.2);
+   const t0=c.A+.45,cps=Math.max(9,word.length/Math.max(.3,c.B-1.25-t0)),typed=ty(word,c.t,t0,cps),done=typed.length>=word.length,sent=t0+word.length/cps+.3,kb=eb((c.t-sent)/.35),cur=!done&&Math.floor(c.t*3)%2?'|':'';
+   let h=`<div class="a" style="left:${x}px;top:${top}px;width:${w}px;height:100px;box-sizing:border-box;border-radius:50px;${CARD};display:flex;align-items:center;gap:18px;padding:0 34px 0 18px;opacity:${o};transform:translateY(${(1-e)*40}px)">${avatar(c.photos[0],word,64)}
+    <div style="flex:1;font:${typed?500:400} 32px/1 Inter;color:${typed?'#16161a':'#9a9a9f'};white-space:nowrap">${typed?typed+cur:'Add a comment…'}</div><div style="font:600 30px/1 Inter;color:${BLUE};opacity:${done?1:.35};transform:scale(${Math.abs(c.t-sent)<.1?.9:1})">Post</div></div>`;
+   if(c.t>sent)h+=`<div class="a" style="right:${x+30}px;top:${top-82}px;background:#3A55F5;color:#fff;font:600 30px/1 Inter;padding:17px 28px;border-radius:22px 22px 6px 22px;box-shadow:0 14px 30px rgba(58,85,245,.35);opacity:${cl((c.t-sent)/.1)*o};transform:scale(${.4+.6*kb});transform-origin:100% 100%">${word}</div>`;
+   return h}},
+  // A cut-out PNG rises from the bottom in front of the person, settles, and drops away at the end.
+  propIn:{f:c=>{const src=c.photos[0];if(!src)return '';const w=1080*cl(num(c.num,60)/100,.25,1),side=/left/i.test(c.say)?-1:/cent/i.test(c.say)?0:1;
+   const x=side<0?40:side>0?1080-w-40:(1080-w)/2,e=eb((c.t-c.A)/.6),out=cl((c.t-(c.B-.35))/.35),dy=(1-e)*1000+out*out*1200,r=(1-eo((c.t-c.A)/.6))*side*6;
+   return `<img class="a" src="${src}" style="left:${x}px;bottom:-40px;width:${w}px;transform:translateY(${dy}px) rotate(${r}deg) scale(${1+.03*cl((c.t-c.A)/Math.max(.5,c.B-c.A))});transform-origin:50% 100%;filter:drop-shadow(0 30px 40px rgba(0,0,0,.35));opacity:${cl((c.t-c.A)/.08)}">`}},
+  // A phone whips in from the left with motion blur, holds your screenshot, and whips out to the right.
+  phoneWhip:{f:c=>{const w=500,h=Math.round(w*2.06),k=eo((c.t-c.A)/.42),out=cl((c.t-(c.B-.3))/.3),oe=out*out,top=Math.max(520,Math.min(820,c.FB-120)),x0=560-w/2;
+   const x=-w-160+(x0+w+160)*k+oe*(1080-x0+80),bl=(1-k)*24+oe*24,sk=-(1-k)*12+oe*12,src=c.photos[0];
+   const screen=src?`<img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block">`
+    :`<div style="width:100%;height:100%;background:linear-gradient(160deg,#2b2d33,#111);display:flex;align-items:center;justify-content:center;font:700 96px/1 Antonio;color:#fff">${c.big}</div>`;
+   return `<div class="a" style="left:${x}px;top:${top}px;width:${w}px;height:${h}px;box-sizing:border-box;padding:16px;border-radius:80px;background:#141416;box-shadow:0 0 0 4px #b9b4ad,0 0 0 6px #6d6a66,0 50px 90px rgba(0,0,0,.45);transform:rotate(${-4-(1-k)*6}deg) skewX(${sk}deg);filter:blur(${bl}px)">
+    <div style="position:relative;width:100%;height:100%;border-radius:64px;overflow:hidden;background:#000">${screen}
+    <div style="position:absolute;left:50%;top:18px;width:150px;height:42px;margin-left:-75px;border-radius:21px;background:#000"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.16),rgba(255,255,255,0) 38%)"></div></div></div>`}},
+  // Photos fan out from behind the person to one side. Wide shot: behind the person; close-up (no room behind): in front, beside the body.
+  photoFan:{b:c=>wide(c)?fan(c):'',f:c=>wide(c)?'':fan(c)},
+  // A tall photo slides in from the left edge; beside it the words light up as they are said.
+  sideCard:{b:c=>side(c,'b'),f:c=>side(c,'f')},
   cta:{f:c=>{const msg=CTA.word?`comment ${CTA.word} · ${CTA.gift.toLowerCase()}`:'follow for more';const fu=faceU(Math.max(0,c.t-.3),c.t+.3);
    if(fu.b>1320||below(c.t)+470>1600)return BANK.chatPill(c.t,c.A,c.B,msg,{y:190});
    return CTA.word?BANK.labelPlate(c.t,c.A,c.B,'comment '+CTA.word,CTA.gift,{y:below(c.t),sub:'I’ll send it to your DMs'}):BANK.labelPlate(c.t,c.A,c.B,'follow','FOR MORE',{y:below(c.t),sub:'new reels every week'})}},
@@ -141,6 +227,7 @@
   return h};
  plates=t=>SB?run(t,'f'):autoPlates(t);
  backPlates=t=>SB?run(t,'b'):autoBack(t);
+ let OWN=[];   // sound cues this bridge added to SFX (taken back out when the beats change)
  window.STUDIIO_APPLY=doc=>{
   if(!doc||!Array.isArray(doc.beats)||!doc.beats.length){SB=null;return}
   SB=doc;
@@ -154,6 +241,8 @@
   (doc.vfx||[]).forEach(v=>{const o={};if(v.color)o.color=v.color;VFX.push([+v.a,+v.b,String(v.kind),o])});
   window.VFX=VFX;
   CTA.word=SAFE(doc.cta&&doc.cta.word).toUpperCase();CTA.gift=SAFE(doc.cta&&doc.cta.gift)||'FREE GUIDE';
+  if(typeof SFX!=='undefined'){OWN.forEach(x=>{const i=SFX.indexOf(x);if(i>=0)SFX.splice(i,1)});OWN=[];
+   BEATS.forEach(b=>{const f=CUES[b.effect];if(!f)return;try{f(b).forEach(([t,k,v])=>{if(t>=0&&t<DUR){const x=[+t.toFixed(3),k,v];SFX.push(x);OWN.push(x)}})}catch(e){}})}
  };
  if(typeof STUDIIO_BEATS!=='undefined'&&!window.STUDIIO_BEATS_OFF)STUDIIO_APPLY(STUDIIO_BEATS);
 })();
